@@ -9,10 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let existingConfigNames = [];
     let lastKnownStatuses = {};
 
-    function showDeviceLimitPopup(error) {
+    function showConfigLimitPopup(error) {
         const response = error.response?.data;
         if (response?.error !== 'license_limit') return false;
-        alert(response.message || 'Device limit exceeded. Remove a device before adding another.');
+        alert(response.message || 'Configuration limit exceeded. Remove a saved config before adding another.');
         return true;
     }
 
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editConfig(name);  // ← loads overview for selected device
         })
         .catch(err => {
-            if (showDeviceLimitPopup(err)) {
+            if (showConfigLimitPopup(err)) {
                 testOutput.textContent = err.response.data.message;
             } else {
                 testOutput.textContent = `❌ Error starting ${name}: ${err.message}`;
@@ -366,7 +366,7 @@ startLiveDataPolling();
         axios.post(`/duplicate_config/${name}`, { new_name: newName })
             .then(res => { testOutput.textContent = `✅ ${res.data.message}`; renderConfigs(); })
             .catch(err => {
-                if (showDeviceLimitPopup(err)) {
+                if (showConfigLimitPopup(err)) {
                     testOutput.textContent = err.response.data.message;
                 } else {
                     testOutput.textContent = `❌ Error duplicating: ${err.message}`;
@@ -1046,7 +1046,7 @@ cancelEditBtn.style.display = 'none';
 deviceNameInput.disabled = false;
 
 }).catch(err => {
-    if (showDeviceLimitPopup(err)) return;
+    if (showConfigLimitPopup(err)) return;
     alert(`❌ Error saving: ${err.response?.data?.error || err.message}`);
 });
     });

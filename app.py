@@ -17,7 +17,7 @@ app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'configs')
 SYSTEMD_DIR = '/etc/systemd/system'
-MAX_DEVICES = 5
+MAX_CONFIGS = 5
 add_lock = threading.Lock()
 
 if not os.path.exists(CONFIG_DIR):
@@ -35,31 +35,22 @@ def is_valid_device_name(name: str) -> bool:
     return isinstance(name, str) and bool(re.fullmatch(r'[A-Za-z0-9_-]{1,40}', name))
 
 
-def count_configured_devices() -> int:
-    """Count Telegraf input entries across saved device configs."""
+def count_saved_configs() -> int:
+    """Count saved config files, excluding temporary Telegraf test files."""
     total = 0
     for filename in os.listdir(CONFIG_DIR):
         if not filename.endswith('.conf') or filename.startswith('temp_test_'):
             continue
         filepath = os.path.join(CONFIG_DIR, filename)
-        if not os.path.isfile(filepath):
-            continue
-        with open(filepath, 'r') as config_file:
-            config = toml.load(config_file)
-        total += count_devices_in_config(config)
+        if os.path.isfile(filepath):
+            total += 1
     return total
 
 
-def count_devices_in_config(config: dict) -> int:
-    inputs = config.get('inputs', {})
-    entries = sum(len(value) if isinstance(value, list) else 1 for value in inputs.values())
-    return max(1, entries)
-
-
-def device_limit_error(used: int):
+def config_limit_error(used: int):
     return jsonify({
         'error': 'license_limit',
-        'message': f'Device limit exceeded. This controller supports up to {MAX_DEVICES} devices; {used} are already configured.'
+        'message': f'Configuration limit exceeded. This controller supports up to {MAX_CONFIGS} saved config files; {used} are already saved.'
     }), 403
 
 # Standard SMI tree anchors — most vendor MIBs eventually root their custom
@@ -473,9 +464,9 @@ def save_config(name):
         with add_lock:
             is_existing = os.path.exists(filepath)
             if not is_existing:
-                used = count_configured_devices()
-                if used + 1 > MAX_DEVICES:
-                    return device_limit_error(used)
+                used = count_saved_configs()
+                if used + 1 > MAX_CONFIGS:
+                    return config_limit_error(used)
             warning = 'Configuration file already exists and has been overwritten' if is_existing else None
             with open(filepath, 'w') as f:
                 f.write(conf_str)
@@ -522,9 +513,9 @@ def start_service(name):
         if not os.path.exists(filepath):
             return jsonify({'error': 'Configuration file not found'}), 404
         with add_lock:
-            used = count_configured_devices()
-            if used > MAX_DEVICES:
-                return device_limit_error(used)
+            used = count_saved_configs()
+            if used > MAX_CONFIGS:
+                return config_limit_error(used)
             create_systemd_service(name)
             subprocess.run(['systemctl', 'start', service_name], check=True)
         return jsonify({'message': f'Service {service_name} started'})
@@ -652,12 +643,11 @@ def duplicate_config(name):
                 return jsonify({'error': f'Original config {name} not found'}), 404
             if os.path.exists(new_path):
                 return jsonify({'error': f'Configuration {new_name} already exists'}), 400
-            used = count_configured_devices()
+            used = count_saved_configs()
             with open(original_path, 'r') as f:
                 content = f.read()
-            duplicate_devices = count_devices_in_config(toml.loads(content))
-            if used + duplicate_devices > MAX_DEVICES:
-                return device_limit_error(used)
+            if used + 1 > MAX_CONFIGS:
+                return config_limit_error(used)
             with open(new_path, 'w') as f:
                 f.write(content)
             create_systemd_service(new_name)

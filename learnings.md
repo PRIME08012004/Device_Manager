@@ -35,9 +35,9 @@ Reviewed the repository instructions in `agents.md` before inspecting the applic
 
 ## Config limit implementation
 
-- Owner chose a fixed cap of 5 devices for this feature, so this change uses a local constant instead of introducing the signed-license flow described elsewhere in `agents.md`.
-- The server counts input entries across all `configs/*.conf`, counts at least one device per saved config, ignores `temp_test_*.conf`, and uses a shared lock around save, duplicate, delete, and start checks.
-- The four checked-in sample configs currently use 4 input entries total, leaving room for one more device under the cap.
-- New saves and duplicates are rejected with HTTP 403 and the `license_limit` error when they would exceed 5. Existing configs can still be edited at the cap. Service starts are rejected if the current total is already over 5.
+- Owner chose a fixed cap of 5 saved config files for this feature, so this change uses a local constant instead of introducing the signed-license flow described elsewhere in `agents.md`.
+- The server counts persistent `.conf` files in `configs/`, ignores `temp_test_*.conf`, and uses a shared lock around save, duplicate, delete, and start checks. Input entries inside a config do not affect the cap.
+- There are four checked-in sample config files, leaving room for one more saved config under the cap.
+- New saves and duplicates are rejected with HTTP 403 and the `license_limit` error when they would exceed 5. Existing configs can still be edited at the cap. Service starts are rejected if the current saved config file count is already over 5.
 - The configuration page recognizes that response and displays a browser popup. Device names are also checked against the repo's required allowed-name format before they are used in config or service paths.
 - I reviewed the resulting diff and ran `git diff --check` with CRLF-aware whitespace handling. No tests were added or run; the repo has no test location and `agents.md` says to ask before creating one.
