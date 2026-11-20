@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let existingConfigNames = [];
     let lastKnownStatuses = {};
 
+    function showDeviceLimitPopup(error) {
+        const response = error.response?.data;
+        if (response?.error !== 'license_limit') return false;
+        alert(response.message || 'Device limit exceeded. Remove a device before adding another.');
+        return true;
+    }
+
     // =========================================================
     // CONFIG LIST
     // =========================================================
@@ -112,7 +119,11 @@ document.addEventListener('DOMContentLoaded', () => {
             editConfig(name);  // ← loads overview for selected device
         })
         .catch(err => {
-            testOutput.textContent = `❌ Error starting ${name}: ${err.message}`;
+            if (showDeviceLimitPopup(err)) {
+                testOutput.textContent = err.response.data.message;
+            } else {
+                testOutput.textContent = `❌ Error starting ${name}: ${err.message}`;
+            }
             updateStatuses();
         });
 };
@@ -354,7 +365,13 @@ startLiveDataPolling();
         }
         axios.post(`/duplicate_config/${name}`, { new_name: newName })
             .then(res => { testOutput.textContent = `✅ ${res.data.message}`; renderConfigs(); })
-            .catch(err => { testOutput.textContent = `❌ Error duplicating: ${err.message}`; });
+            .catch(err => {
+                if (showDeviceLimitPopup(err)) {
+                    testOutput.textContent = err.response.data.message;
+                } else {
+                    testOutput.textContent = `❌ Error duplicating: ${err.message}`;
+                }
+            });
     }
 
     // Dark mode
@@ -1028,7 +1045,10 @@ editingConfigNameInput.value = name;
 cancelEditBtn.style.display = 'none';
 deviceNameInput.disabled = false;
 
-}).catch(err => { alert(`❌ Error saving: ${err.response?.data?.error || err.message}`); });
+}).catch(err => {
+    if (showDeviceLimitPopup(err)) return;
+    alert(`❌ Error saving: ${err.response?.data?.error || err.message}`);
+});
     });
 
     // =========================================================

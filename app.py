@@ -17,6 +17,8 @@ app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'configs')
 SYSTEMD_DIR = '/etc/systemd/system'
+MAX_DEVICES = 5
+add_lock = threading.Lock()
 
 if not os.path.exists(CONFIG_DIR):
     os.makedirs(CONFIG_DIR)
@@ -27,6 +29,38 @@ MODBUS_CONFIG = os.path.join(os.path.dirname(__file__), 'modbus_config.json')
 MIB_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'mibs')
 if not os.path.exists(MIB_UPLOAD_DIR):
     os.makedirs(MIB_UPLOAD_DIR)
+
+
+def is_valid_device_name(name: str) -> bool:
+    return isinstance(name, str) and bool(re.fullmatch(r'[A-Za-z0-9_-]{1,40}', name))
+
+
+def count_configured_devices() -> int:
+    """Count Telegraf input entries across saved device configs."""
+    total = 0
+    for filename in os.listdir(CONFIG_DIR):
+        if not filename.endswith('.conf') or filename.startswith('temp_test_'):
+            continue
+        filepath = os.path.join(CONFIG_DIR, filename)
+        if not os.path.isfile(filepath):
+            continue
+        with open(filepath, 'r') as config_file:
+            config = toml.load(config_file)
+        total += count_devices_in_config(config)
+    return total
+
+
+def count_devices_in_config(config: dict) -> int:
+    inputs = config.get('inputs', {})
+    entries = sum(len(value) if isinstance(value, list) else 1 for value in inputs.values())
+    return max(1, entries)
+
+
+def device_limit_error(used: int):
+    return jsonify({
+        'error': 'license_limit',
+        'message': f'Device limit exceeded. This controller supports up to {MAX_DEVICES} devices; {used} are already configured.'
+    }), 403
 
 # Standard SMI tree anchors — most vendor MIBs eventually root their custom
 # objects under one of these well-known names (e.g. "enterprises"), even
@@ -369,6 +403,8 @@ def list_configs():
 @app.route('/config/<name>', methods=['GET'])
 def get_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
         if not os.path.exists(filepath):
             return jsonify({'error': 'Config not found'}), 404
@@ -427,15 +463,23 @@ def get_config(name):
 @app.route('/config/<name>', methods=['POST'])
 def save_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         data = request.json
+        if not isinstance(data, dict) or not is_valid_device_name(data.get('name')) or data['name'] != name:
+            return jsonify({'error': 'Invalid or mismatched device name'}), 400
         conf_str = generate_telegraf_conf(data)
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
-        warning = None
-        if os.path.exists(filepath):
-            warning = 'Configuration file already exists and has been overwritten'
-        with open(filepath, 'w') as f:
-            f.write(conf_str)
-        create_systemd_service(name)
+        with add_lock:
+            is_existing = os.path.exists(filepath)
+            if not is_existing:
+                used = count_configured_devices()
+                if used + 1 > MAX_DEVICES:
+                    return device_limit_error(used)
+            warning = 'Configuration file already exists and has been overwritten' if is_existing else None
+            with open(filepath, 'w') as f:
+                f.write(conf_str)
+            create_systemd_service(name)
         return jsonify({'message': 'Config saved successfully', 'warning': warning})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -443,10 +487,13 @@ def save_config(name):
 @app.route('/config/<name>', methods=['DELETE'])
 def delete_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
-        if not os.path.exists(filepath):
-            return jsonify({'error': 'Config not found'}), 404
-        os.remove(filepath)
+        with add_lock:
+            if not os.path.exists(filepath):
+                return jsonify({'error': 'Config not found'}), 404
+            os.remove(filepath)
         return jsonify({'message': 'Config deleted'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -454,6 +501,8 @@ def delete_config(name):
 @app.route('/service/<name>', methods=['DELETE'])
 def delete_service(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         service_name = f'telegraf-{name}.service'
         service_path = os.path.join(SYSTEMD_DIR, service_name)
         if os.path.exists(service_path):
@@ -466,12 +515,18 @@ def delete_service(name):
 @app.route('/start_service/<name>', methods=['POST'])
 def start_service(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         service_name = f'telegraf-{name}'
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
         if not os.path.exists(filepath):
             return jsonify({'error': 'Configuration file not found'}), 404
-        create_systemd_service(name)
-        subprocess.run(['systemctl', 'start', service_name], check=True)
+        with add_lock:
+            used = count_configured_devices()
+            if used > MAX_DEVICES:
+                return device_limit_error(used)
+            create_systemd_service(name)
+            subprocess.run(['systemctl', 'start', service_name], check=True)
         return jsonify({'message': f'Service {service_name} started'})
     except subprocess.CalledProcessError as e:
         return jsonify({'error': f'Failed to start service: {str(e)}'}), 500
@@ -481,6 +536,8 @@ def start_service(name):
 @app.route('/stop_service/<name>', methods=['POST'])
 def stop_service(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         service_name = f'telegraf-{name}'
         result = subprocess.run(['systemctl', 'is-active', service_name], capture_output=True, text=True)
         if result.returncode == 0:
@@ -494,6 +551,8 @@ def stop_service(name):
 @app.route('/service_status/<name>', methods=['GET'])
 def service_status(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         service_name = f'telegraf-{name}'
         result = subprocess.run(['systemctl', 'status', service_name], capture_output=True, text=True)
         if 'Active: active (running)' in result.stdout:
@@ -509,6 +568,8 @@ def service_status(name):
 @app.route('/test_config/<name>', methods=['GET'])
 def test_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
         if not os.path.exists(filepath):
             return jsonify({'error': 'Config not found'}), 404
@@ -524,6 +585,8 @@ def test_config(name):
 def test_config_from_data():
     try:
         data = request.json
+        if not isinstance(data, dict) or not is_valid_device_name(data.get('name')):
+            return jsonify({'error': 'Invalid device name'}), 400
         conf_str = generate_telegraf_conf(data)
         temp_filepath = os.path.join(CONFIG_DIR, f'temp_test_{data["name"]}.conf')
         with open(temp_filepath, 'w') as f:
@@ -546,6 +609,8 @@ def test_config_from_data():
 @app.route('/download/<name>', methods=['GET'])
 def download_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
         if not os.path.exists(filepath):
             return jsonify({'error': 'Config not found'}), 404
@@ -557,6 +622,8 @@ def download_config(name):
 def generate_conf():
     try:
         data = request.json
+        if not isinstance(data, dict) or not is_valid_device_name(data.get('name')):
+            return jsonify({'error': 'Invalid device name'}), 400
         conf_str = generate_telegraf_conf(data)
         return send_file(
             io.BytesIO(conf_str.encode('utf-8')),
@@ -570,21 +637,30 @@ def generate_conf():
 @app.route('/duplicate_config/<name>', methods=['POST'])
 def duplicate_config(name):
     try:
+        if not is_valid_device_name(name):
+            return jsonify({'error': 'Invalid device name'}), 400
         data = request.json
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Invalid request body'}), 400
         new_name = data.get('new_name')
-        if not new_name:
-            return jsonify({'error': 'New configuration name is required'}), 400
+        if not is_valid_device_name(new_name):
+            return jsonify({'error': 'Invalid new configuration name'}), 400
         original_path = os.path.join(CONFIG_DIR, f'{name}.conf')
         new_path = os.path.join(CONFIG_DIR, f'{new_name}.conf')
-        if not os.path.exists(original_path):
-            return jsonify({'error': f'Original config {name} not found'}), 404
-        if os.path.exists(new_path):
-            return jsonify({'error': f'Configuration {new_name} already exists'}), 400
-        with open(original_path, 'r') as f:
-            content = f.read()
-        with open(new_path, 'w') as f:
-            f.write(content)
-        create_systemd_service(new_name)
+        with add_lock:
+            if not os.path.exists(original_path):
+                return jsonify({'error': f'Original config {name} not found'}), 404
+            if os.path.exists(new_path):
+                return jsonify({'error': f'Configuration {new_name} already exists'}), 400
+            used = count_configured_devices()
+            with open(original_path, 'r') as f:
+                content = f.read()
+            duplicate_devices = count_devices_in_config(toml.loads(content))
+            if used + duplicate_devices > MAX_DEVICES:
+                return device_limit_error(used)
+            with open(new_path, 'w') as f:
+                f.write(content)
+            create_systemd_service(new_name)
         return jsonify({'message': f'Configuration duplicated as {new_name}'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
