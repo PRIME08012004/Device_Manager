@@ -17,7 +17,7 @@ app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'configs')
 SYSTEMD_DIR = '/etc/systemd/system'
-MAX_CONFIGS = 5
+MAX_CONFIGS = 100
 add_lock = threading.Lock()
 
 if not os.path.exists(CONFIG_DIR):
@@ -983,5 +983,5 @@ def snmp_live_query():
 
 
 if __name__ == '__main__':
-    print('Starting Device UI server on http://0.0.0.0:5000/')
+    print('Starting Device UI server on http://0.0.0.0:2999/')
     app.run(host='0.0.0.0', port=2999, debug=False)
