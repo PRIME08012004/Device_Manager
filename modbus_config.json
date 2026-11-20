@@ -1,0 +1,9 @@
+{
+  "mapping": {
+    "tmp": {
+      "register": 30001,
+      "length": 1,
+      "type": "ir"
+    }
+  }
+}

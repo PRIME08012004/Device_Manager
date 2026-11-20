@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neutron Automation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body class="bg-gray-100 text-gray-800 font-sans antialiased">
+
+<!-- ================= NAVBAR ================= -->
+<nav class="navbar">
+    <div class="nav-container">
+        <div class="logo">
+            <img src="/static/logo.png" alt="Neutron Automation">
+            <span>Neutron Automation</span>
+        </div>
+
+        <button id="themeToggle">🌙</button>
+    </div>
+</nav>
+
+
+<!-- ================= DEVICE CONFIG UI ================= -->
+<section id="config-section" class="section">
+    <h2 class="text-3xl font-semibold text-indigo-700 mb-6 text-center">
+        Device Configuration Portal
+    </h2>
+
+<div class="container mx-auto p-6 max-w-5xl bg-white rounded-xl shadow-lg">
+    <div class="container mx-auto p-6 max-w-5xl">
+
+        <!-- Header -->
+        <!-- <header class="mb-8">
+            <h1 class="text-4xl font-bold text-center text-indigo-700">Device UI</h1>
+        </header> -->
+
+        <!-- Configuration Form Section -->
+        <section class="config-section bg-white shadow-lg rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-indigo-600 mb-4">Create/Edit Configuration</h2>
+            <form id="configForm" class="space-y-6">
+                <input type="hidden" id="editingConfigName" value="">
+                <input type="hidden" id="editingRegisterIndex" value="-1">
+                <input type="hidden" id="editingFieldIndex" value="-1">
+                <input type="hidden" id="editingTagIndex" value="-1">
+
+                <!-- Device Configuration -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label for="name" class="block text-sm font-medium text-gray-700">Device Name:</label>
+                        <input type="text" id="name" name="name" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeout" class="block text-sm font-medium text-gray-700">Timeout (e.g., 5s, 500ms):</label>
+                        <input type="text" id="timeout" name="timeout" value="1s" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="protocol" class="block text-sm font-medium text-gray-700">Protocol:</label>
+                        <select id="protocol" name="protocol" onchange="toggleProtocolFields(this.value)" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="tcp">Modbus-TCP</option>
+                            <option value="rtu">Modbus-RTU</option>
+                            <option value="snmp">SNMP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="slave_id" class="block text-sm font-medium text-gray-700">Slave ID:</label>
+                        <input type="number" id="slave_id" name="slave_id" value="1" min="1" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Protocol-Specific Fields -->
+                <div id="tcpFields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="host" class="block text-sm font-medium text-gray-700">Host:</label>
+                        <input type="text" id="host" name="host" value="localhost" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="port" class="block text-sm font-medium text-gray-700">Port:</label>
+                        <input type="number" name="port" value="502" min="1" max="65535" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+                <div id="rtuFields" style="display: none;" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label for="controller" class="block text-sm font-medium text-gray-700">Controller (e.g., /dev/ttyS0):</label>
+                        <input type="text" id="controller" name="controller" value="/dev/ttyS0" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="baud_rate" class="block text-sm font-medium text-gray-700">Baud Rate:</label>
+                        <select id="baud_rate" name="baud_rate" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                            <option value="57600">57600</option>
+                            <option value="115200">115200</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="data_bits" class="block text-sm font-medium text-gray-700">Data Bits:</label>
+                        <select id="data_bits" name="data_bits" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="parity" class="block text-sm font-medium text-gray-700">Parity:</label>
+                        <select id="parity" name="parity" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="N">None</option>
+                            <option value="E">Even</option>
+                            <option value="O">Odd</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="stop_bits" class="block text-sm font-medium text-gray-700">Stop Bits:</label>
+                        <select id="stop_bits" name="stop_bits" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="snmpFields" style="display: none;" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label for="host" class="block text-sm font-medium text-gray-700">Host:</label>
+                        <input type="text" name="host" value="localhost" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="port" class="block text-sm font-medium text-gray-700">Port:</label>
+                        <input type="number" name="port" value="161" min="1" max="65535" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="form-group">
+                        <label for="version" class="block text-sm font-medium text-gray-700">SNMP Version:</label>
+                        <select id="version" name="version" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="community" class="block text-sm font-medium text-gray-700">Community String:</label>
+                        <input type="text" id="community" name="community" value="public" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Modbus Registers -->
+                <div id="modbusRegistersSection">
+                    <h3 class="text-lg font-medium text-indigo-600 mb-3">Add/Update Register</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="registerType" class="block text-sm font-medium text-gray-700">Register Type:</label>
+                            <select id="registerType" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="discrete_inputs">Discrete Inputs</option>
+                                <option value="coils">Coils</option>
+                                <option value="holding_registers">Holding Registers</option>
+                                <option value="input_registers">Input Registers</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="regName" class="block text-sm font-medium text-gray-700">Name:</label>
+                            <input type="text" id="regName" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="form-group">
+                            <label for="regAddress" class="block text-sm font-medium text-gray-700">Address (comma-separated):</label>
+                            <input type="text" id="regAddress" placeholder="e.g., 0" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div id="byteOrderGroup" class="form-group">
+                            <label id="byteOrderLabel" for="byteOrder" class="block text-sm font-medium text-gray-700">Byte Order:</label>
+                            <select id="byteOrder" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="AB">AB</option>
+                                <option value="BA">BA</option>
+                                <option value="ABCD">ABCD</option>
+                                <option value="DCBA">DCBA</option>
+                                <option value="BADC">BADC</option>
+                                <option value="CDAB">CDAB</option>
+                                <option value="ABCDEFGH">ABCDEFGH</option>
+                                <option value="HGFEDCBA">HGFEDCBA</option>
+                                <option value="BADCFEHG">BADCFEHG</option>
+                                <option value="GHEFCDAB">GHEFCDAB</option>
+                            </select>
+                            <p id="byteOrderWarning" class="warning text-orange-500 text-xs mt-1"></p>
+                        </div>
+                        <div id="dataTypeGroup" class="form-group">
+                            <label for="dataType" class="block text-sm font-medium text-gray-700">Data Type:</label>
+                            <select id="dataType" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="BIT">BIT</option>
+                                <option value="INT8L">INT8L</option>
+                                <option value="INT8H">INT8H</option>
+                                <option value="UINT8L">UINT8L</option>
+                                <option value="UINT8H">UINT8H</option>
+                                <option value="INT16">INT16</option>
+                                <option value="UINT16">UINT16</option>
+                                <option value="INT32">INT32</option>
+                                <option value="UINT32">UINT32</option>
+                                <option value="INT64">INT64</option>
+                                <option value="UINT64">UINT64</option>
+                                <option value="FLOAT16-IEEE">FLOAT16-IEEE</option>
+                                <option value="FLOAT32-IEEE">FLOAT32-IEEE</option>
+                                <option value="FLOAT64-IEEE">FLOAT64-IEEE</option>
+                                <option value="FIXED">FIXED</option>
+                                <option value="UFIXED">UFIXED</option>
+                                <option value="STRING">STRING</option>
+                            </select>
+                        </div>
+                        <div id="scaleGroup" class="form-group">
+                            <label for="regScale" class="block text-sm font-medium text-gray-700">Scale:</label>
+                            <input type="number" id="regScale" value="1.0" step="0.1" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button type="button" id="addRegisterBtn" onclick="addRegister()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition transform hover:scale-105">Add Register</button>
+                    </div>
+                    <h3 class="text-lg font-medium text-indigo-600 mt-6 mb-3">Registers</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-indigo-700 text-white">
+                                    <th class="p-3">Type</th>
+                                    <th class="p-3">Name</th>
+                                    <th class="p-3">Address</th>
+                                    <th class="p-3">Byte Order</th>
+                                    <th class="p-3">Data Type</th>
+                                    <th class="p-3">Scale</th>
+                                    <th class="p-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="registersTable" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SNMP Fields -->
+                <div id="snmpFieldsSection" style="display: none;">
+                    <h3 class="text-lg font-medium text-indigo-600 mb-3">Add/Update SNMP Field</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="fieldName" class="block text-sm font-medium text-gray-700">Name:</label>
+                            <input type="text" id="fieldName" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="form-group">
+                            <label for="fieldOid" class="block text-sm font-medium text-gray-700">OID:</label>
+                            <input type="text" id="fieldOid" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="form-group flex items-center">
+                            <label for="fieldIsTag" class="block text-sm font-medium text-gray-700 mr-2">Is Tag:</label>
+                            <input type="checkbox" id="fieldIsTag" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button type="button" id="addFieldBtn" onclick="addField()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition transform hover:scale-105">Add Field</button>
+                    </div>
+                    <h3 class="text-lg font-medium text-indigo-600 mt-6 mb-3">SNMP Fields</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-indigo-700 text-white">
+                                    <th class="p-3">Name</th>
+                                    <th class="p-3">OID</th>
+                                    <th class="p-3">Is Tag</th>
+                                    <th class="p-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fieldsTable" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="tags-section">
+                    <h3 class="text-lg font-medium text-indigo-600 mb-3">Add/Update Tag</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label for="tagLabel" class="block text-sm font-medium text-gray-700">Label:</label>
+                            <input type="text" id="tagLabel" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="form-group">
+                            <label for="tagValue" class="block text-sm font-medium text-gray-700">Value:</label>
+                            <input type="text" id="tagValue" class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button type="button" id="addTagBtn" onclick="addTag()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition transform hover:scale-105">Add Tag</button>
+                    </div>
+                    <h3 class="text-lg font-medium text-indigo-600 mt-6 mb-3">Tags</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-indigo-700 text-white">
+                                    <th class="p-3">Label</th>
+                                    <th class="p-3">Value</th>
+                                    <th class="p-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tagsTable" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- InfluxDB Output -->
+                <div class="influxdb-section">
+    <h3 class="text-lg font-medium text-indigo-600 mb-3">InfluxDB v2 Output</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700">URLs (comma-separated):</label>
+            <input type="text" id="influxUrls" class="w-full p-2 border rounded-md" placeholder="http://localhost:8086">
+        </div>
+        <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700">Token:</label>
+            <input type="text" id="influxToken" class="w-full p-2 border rounded-md">
+        </div>
+        <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700">Organization:</label>
+            <input type="text" id="influxOrg" class="w-full p-2 border rounded-md">
+        </div>
+        <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700">Bucket:</label>
+            <input type="text" id="influxBucket" class="w-full p-2 border rounded-md">
+        </div>
+    </div>
+
+    <div class="flex justify-center mb-4">
+        <button type="button"
+                onclick="addInfluxDB()"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+            Add InfluxDB
+        </button>
+    </div>
+
+    <h3 class="text-lg font-medium text-indigo-600 mb-3">InfluxDB Outputs</h3>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-indigo-700 text-white">
+                    <th class="p-3">URLs</th>
+                    <th class="p-3">Org</th>
+                    <th class="p-3">Bucket</th>
+                    <th class="p-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="influxTable" class="divide-y divide-gray-200"></tbody>
+        </table>
+    </div>
+</div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-center space-x-4">
+                    <button type="button" id="saveConfigBtn" class="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition transform hover:scale-105">Save Configuration</button>
+                    <button type="button" id="cancelEditBtn" onclick="cancelEdit()" style="display: none;" class="bg-red-500 text-white px-6 py-2 rounded-md hover:bg-red-600 transition transform hover:scale-105">Cancel Edit</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Configurations List -->
+        <section class="bg-white shadow-lg rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-indigo-600 mb-4">Configurations</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-indigo-700 text-white">
+                            <th class="p-3">Name</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="configList" class="divide-y divide-gray-200"></tbody>
+                    
+                </table>
+
+            </div>
+        </section>
+
+        <!-- Test Output -->
+        <section class="bg-white shadow-lg rounded-lg p-6">
+            <h2 class="text-2xl font-semibold text-indigo-600 mb-4">Test Output</h2>
+            <pre id="testOutput" class="bg-gray-100 p-4 rounded-md text-sm text-gray-700 min-h-[100px] whitespace-pre-wrap"></pre>
+        </section>
+    </div>
+        <!-- (Your entire form stays EXACTLY the same here) -->
+
+        <!-- 🔼 YOUR FULL FORM CONTENT ENDS HERE 🔼 -->
+    </div>
+</section>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

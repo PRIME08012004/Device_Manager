@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neutron Automation - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --surface2: #f1f5f9;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text2: #64748b;
+            --nav-h: 48px;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* DARK MODE */
+        body.dark {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface2: #0f172a;
+            --border: rgba(255,255,255,0.08);
+            --text: #f1f5f9;
+            --text2: #94a3b8;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        body.dark .navbar { background: #020617; }
+
+        /* NAVBAR */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--nav-h);
+            background: #1e1b4b;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .navbar-brand { display: flex; align-items: center; gap: 8px; }
+        .navbar-brand img { height: 24px; }
+        .navbar-brand span { color: #fff; font-weight: 700; font-size: 14px; }
+        .navbar-right { display: flex; align-items: center; gap: 8px; }
+        .navbar-right a {
+            color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 500;
+            text-decoration: none; padding: 4px 10px; border-radius: 5px;
+            transition: all 0.15s;
+        }
+        .navbar-right a:hover, .navbar-right a.active { color: #fff; background: rgba(255,255,255,0.1); }
+        #themeToggle {
+            background: transparent; border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; border-radius: 6px; width: 30px; height: 30px;
+            cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* MAIN */
+        .main-content { margin-top: var(--nav-h); padding: 20px; }
+        .page-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .page-subtitle { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+
+        /* STAT CARDS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .stat-card .stat-label {
+            font-size: 10px; font-weight: 700; color: var(--text2);
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .stat-card .stat-value { font-size: 32px; font-weight: 700; line-height: 1; color: var(--text); }
+        .stat-card.total   .stat-value { color: var(--primary); }
+        .stat-card.active  .stat-value { color: var(--success); }
+        .stat-card.inactive .stat-value { color: var(--danger); }
+        .stat-card .stat-icon { font-size: 20px; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <div class="navbar-brand">
+        <img src="/static/logo.png" alt="Neutron">
+        <span>Neutron Automation</span>
+    </div>
+    <div class="navbar-right">
+        <a href="/dashboard" class="active">Dashboard</a>
+        <a href="/configuration">Configuration</a>
+        <button id="themeToggle">🌙</button>
+    </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main-content">
+    <div class="page-title">Dashboard</div>
+    <div class="page-subtitle">Device overview and status</div>
+
+    <div class="stats-grid">
+        <div class="stat-card total">
+            <div class="stat-icon">📡</div>
+            <div class="stat-label">Total Devices</div>
+            <div class="stat-value" id="totalDevices">0</div>
+        </div>
+        <div class="stat-card active">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-label">Active</div>
+            <div class="stat-value" id="activeDevices">0</div>
+        </div>
+        <div class="stat-card inactive">
+            <div class="stat-icon">🔴</div>
+            <div class="stat-label">Inactive</div>
+            <div class="stat-value" id="inactiveDevices">0</div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/dashboard.js"></script>
+<script>
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark');
+    }
+    document.getElementById('themeToggle').addEventListener('click', function () {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+    });
+</script>
+</body>
+</html>

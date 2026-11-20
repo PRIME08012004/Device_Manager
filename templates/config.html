@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Neutron Automation - Configuration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --surface2: #f1f5f9;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text2: #64748b;
+            --text3: #94a3b8;
+            --sidebar-w: clamp(180px, 16vw, 240px);
+            --nav-h: 48px;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* ── NAVBAR ── */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-h);
+            background: #1e1b4b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-brand img {
+            height: 24px;
+        }
+
+        .navbar-brand span {
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-right a {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 4px 10px;
+            border-radius: 5px;
+            transition: all 0.15s;
+        }
+
+        .navbar-right a:hover,
+        .navbar-right a.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #themeToggle {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── LAYOUT ── */
+        .app-layout {
+            display: flex;
+            margin-top: var(--nav-h);
+            height: calc(100vh - var(--nav-h));
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        /* ── LEFT SIDEBAR ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            background: var(--surface2);
+            color: var(--text);
+            outline: none;
+        }
+
+        .search-box:focus {
+            border-color: var(--primary);
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        /* Status styles — config.js applies class="config-status active/inactive/unknown" to the TD */
+        .config-status.active {
+            color: #166534;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .config-status.inactive {
+            color: #991b1b;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .config-status.unknown {
+            color: var(--text3);
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        /* ── HIDE config.js native action buttons — replaced by ··· ── */
+        .config-actions {
+            display: none !important;
+        }
+
+        /* ── THREE-DOT BUTTON ── */
+        .three-dot-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 3px 7px;
+            border-radius: 5px;
+            font-size: 15px;
+            color: var(--text3);
+            letter-spacing: 1px;
+            line-height: 1;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .three-dot-btn:hover {
+            background: var(--surface2);
+            color: var(--text);
+        }
+
+        /* ── ROW DROPDOWN MENU ── */
+        .row-dropdown {
+            position: fixed;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+            z-index: 9999;
+            min-width: 158px;
+            padding: 4px 0;
+            display: none;
+            flex-direction: column;
+        }
+
+        .row-dropdown.open {
+            display: flex;
+        }
+
+        .dd-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: none;
+            text-align: left;
+            width: 100%;
+            transition: background 0.12s;
+            color: var(--text);
+        }
+
+        .dd-btn:hover {
+            background: var(--surface2);
+        }
+
+        .dd-btn.run {
+            color: #166534;
+        }
+
+        .dd-btn.stop {
+            color: #991b1b;
+        }
+
+        .dd-btn.edit {
+            color: #854d0e;
+        }
+
+        .dd-btn.test {
+            color: #1e40af;
+        }
+
+        .dd-btn.copy {
+            color: #6b21a8;
+        }
+
+        .dd-btn.del {
+            color: #991b1b;
+        }
+
+        .dd-sep {
+            height: 1px;
+            background: var(--border);
+            margin: 3px 0;
+        }
+
+        /* ── TEST OUTPUT ── */
+        .sidebar-output {
+            border-top: 1px solid var(--border);
+            padding: 8px 12px;
+        }
+
+        .sidebar-output-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        #testOutput {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 10px;
+            color: #4f46e5;
+            background: var(--surface2);
+            border-radius: 6px;
+            padding: 6px 8px;
+            min-height: 400px;
+            max-height: 70vh;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border: 1px solid var(--border);
+        }
+
+        /* ── MAIN CONTENT ── */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── DETAIL HEADER ── */
+        .detail-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .device-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--primary-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .device-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .device-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .device-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .device-info-row {
+            font-size: 11px;
+            color: var(--text2);
+            margin-top: 2px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--surface);
+            color: var(--text);
+            transition: all 0.15s;
+        }
+
+        .btn-action:hover {
+            background: var(--surface2);
+        }
+
+        .btn-action.primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .btn-action.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-action.success {
+            background: var(--success);
+            color: #fff;
+            border-color: var(--success);
+        }
+
+        .btn-action.danger {
+            background: var(--danger);
+            color: #fff;
+            border-color: var(--danger);
+        }
+
+        /* ── TABS ── */
+        .tab-bar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            padding: 0 16px;
+        }
+
+        .tab-item {
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text2);
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .tab-item:hover {
+            color: var(--text);
+        }
+
+        .tab-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        /* ── CONTENT PANELS ── */
+        .tab-panels {
+            flex: 1;
+            padding: 14px 16px;
+            min-width: 0;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            box-shadow: var(--shadow);
+
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .info-grid>* {
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            padding: 12px;
+            background-color: #f1f5f9;
+            box-shadow: rgba(0, 0, 0, 0.15) 1.95px 1.95px 2.6px;
+        }
+
+        /* ── OVERVIEW GRID ── */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 12px;
+
+        }
+
+        .info-row {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 10px;
+            color: var(--text3);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .info-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* ── LIVE METRICS ── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #tab-overview .overview-grid>.card {
+            margin-top: 0 !important;
+        }
+
+        /* .metric-card { background: var(--surface2); border-radius: 6px; padding: 8px 10px; } */
+
+        .metric-card {
+            background: var(--surface2);
+            border-radius: 6px;
+            padding: 8px 10px;
+            min-height: 80px;
+            overflow: hidden;
+            box-shadow: rgba(0, 0, 0, 0.15) 1.95px 1.95px 2.6px;
+
+        }
+
+
+        .metric-label {
+            font-size: 10px;
+            color: var(--text3);
+            font-weight: 500;
+        }
+
+        /* .metric-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; } */
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            display: inline-block;
+        }
+
+        .metric-unit {
+            font-size: 11px;
+            color: var(--text2);
+            font-weight: 500;
+
+        }
+
+
+        /* ── FORM SECTION ── */
+        /*block so it can never sit beside a field label again ── */
+        .form-section-title {
+            display: block;
+            width: 100%;
+            float: none;
+            clear: both;
+            font-size: 13px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        /* ── one-line, left-to-right rows: fields share the row and
+         shrink proportionally instead of wrapping ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+            align-items: end;
+            gap: 16px;
+            width: 100%;
+            margin-top: 20px;
+            /* move it down */
+        }
+
+        .form-grid .fg {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        
+        #tcpFields .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 300px));
+            gap: 16px;
+            justify-content: start;
+        }
+
+        #rtuFields .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+
+        /* ── fixed 3-column grid for rows that need a predictable layout
+         (SNMP v3 auth fields spanning two rows) ── */
+        #snmpV3Fields {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+            width: 100%;
+            flex-basis: 100%;
+        }
+
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px 20px;
+        }
+
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px 20px;
+            width: 100%;
+        }
+
+        #snmpFields>.form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .fg {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .fg label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fg input,
+        .fg select {
+            min-width: 0;
+            height: 38px;
+            padding: 0 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #0f172a;
+            background: #FAFAFC;
+            outline: none;
+            transition: .25s;
+            width: 100%;
+        }
+
+        .fg input:focus,
+        .fg select:focus {
+            border-color: #4F46E5;
+            background: #FFFFFF;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+        }
+
+        .form-section {
+            background: #fff;
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+            overflow: visible;
+        }
+
+        /* On narrow screens, let rows wrap instead of clipping */
+        @media (max-width: 900px) {
+            #tab-overview .overview-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            #tab-overview .info-grid,
+            #tab-overview .metrics-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            #snmpFields>.form-grid,
+            .form-grid-2,
+            .form-grid-3 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .tab-panels {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 560px) {
+
+            #tab-overview .overview-grid,
+            #tab-overview .info-grid,
+            #tab-overview .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #snmpFields>.form-grid,
+            .form-grid-2,
+            .form-grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
+
+        .fg input:focus,
+        .fg select:focus {
+            border-color: #4F46E5;
+            background: #FFFFFF;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+        }
+
+        .fg .is-tag-pill {
+            height: 37px;
+            padding: 0 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #FAFAFC;
+        }
+
+        .is-tag-text {
+            font-size: 11px;
+            color: var(--text2);
+            font-weight: 500;
+        }
+
+
+        /* ============================
+   TAGS PAGE ONLY
+   ============================ */
+
+        #tab-tags .form-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 18px;
+            align-items: end;
+        }
+
+        #tab-tags .fg {
+            min-width: 0;
+        }
+
+        #tab-tags .fg input {
+            width: 100%;
+        }
+
+        #tab-tags .btn-add {
+            width: 140px;
+            height: 40px;
+        }
+
+        @media (max-width:900px) {
+
+            #tab-tags .form-grid-3 {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            #tab-tags .fg:last-child {
+                grid-column: 1/-1;
+            }
+
+            #tab-tags .btn-add {
+                width: 100%;
+            }
+
+        }
+
+        /* ── COMPACT TABLE ── */
+        #snmpFieldsSection #fieldIsTag {
+            width: 14px;
+            min-width: 14px;
+            height: 14px;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .data-table thead th {
+            background: #f8fafc;
+            padding: 6px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table tbody td {
+            padding: 5px 8px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tbody tr:hover td {
+            background: var(--surface2);
+        }
+
+        .data-table input[type="text"],
+        .data-table input[type="number"] {
+            height: 22px;
+            padding: 0 6px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 11px;
+            width: 100%;
+            background: var(--surface);
+        }
+
+        .data-table input[type="checkbox"] {
+            width: 13px;
+            height: 13px;
+            cursor: pointer;
+        }
+
+        /* MIB Walk modal: sortable header arrows + copy/value styling */
+        .mib-sort-th:hover { color: var(--text); }
+        .mib-sort-arrow { display: inline-block; width: 10px; font-size: 9px; opacity: 0.6; }
+        .mib-oid-cell { display: flex; align-items: center; gap: 6px; }
+        .mib-copy-oid-btn {
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            border-radius: 4px;
+            font-size: 10px;
+            line-height: 1;
+            padding: 3px 5px;
+            cursor: pointer;
+            color: var(--text2);
+            flex-shrink: 0;
+        }
+        .mib-copy-oid-btn:hover { background: var(--surface); color: var(--text); }
+        .mib-copy-oid-btn.copied { color: #16a34a; border-color: #16a34a; }
+        .mib-val-num { color: #2563eb; font-weight: 600; }
+        .mib-val-str { color: #15803d; font-weight: 600; }
+        .mib-val-none { color: var(--text2); }
+
+        /* Browse MIBs modal + tree view rows */
+        .browse-mib-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 10px; border-radius: 6px; cursor: pointer;
+        }
+        .browse-mib-item:hover { background: var(--surface2); }
+        .browse-mib-item .mib-cache-badge {
+            font-size: 9px; color: var(--text2); background: var(--surface2);
+            border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+        }
+        .mib-tree-toggle {
+            display: inline-block; width: 14px; text-align: center; cursor: pointer;
+            color: var(--text2); user-select: none;
+        }
+        .mib-tree-spacer { display: inline-block; width: 14px; }
+
+        .table-wrap {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .card,
+        .form-section,
+        .tab-panel,
+        .table-wrap {
+            min-width: 0;
+        }
+
+        /* ── SMALL BUTTONS ── */
+        .btn-sm {
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: none;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            line-height: 1.5;
+        }
+
+        .btn-sm:hover {
+            opacity: 0.8;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .btn-danger-sm {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .btn-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .btn-add {
+            height: 28px;
+            padding: 0 12px;
+            border-radius: 5px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            align-self: flex-end;
+            white-space: nowrap;
+        }
+
+        .btn-add:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-save-config {
+            padding: 7px 20px;
+            border-radius: 6px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-save-config:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-cancel {
+            padding: 7px 20px;
+            border-radius: 6px;
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* ── MODBUS ── */
+        .modbus-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .modbus-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+        }
+
+        .modbus-btn-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .btn-yes {
+            background: var(--success);
+            color: #fff;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-no {
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #byteOrderWarning {
+            font-size: 9px;
+            color: #f59e0b;
+            margin-top: 2px;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 12px 0;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        /* ── DARK MODE ── */
+        body.dark {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface2: #0f172a;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f1f5f9;
+            --text2: #94a3b8;
+            --text3: #475569;
+            --primary-light: rgba(99, 102, 241, 0.15);
+        }
+
+        body.dark .navbar {
+            background: #020617;
+        }
+
+        body.dark .data-table thead th {
+            background: #1e293b;
+        }
+
+        body.dark .data-table tbody tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        body.dark .fg input,
+        body.dark .fg select,
+        body.dark .data-table input {
+            background: #0f172a;
+            color: #f1f5f9;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark select option {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+
+        body.dark #testOutput {
+            background: #0f172a;
+            color: #818cf8;
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        body.dark .search-box {
+            background: #0f172a;
+            color: #f1f5f9;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark .metric-card {
+            background: #0f172a;
+        }
+
+        body.dark .btn-action {
+            background: #1e293b;
+            color: #f1f5f9;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark .row-dropdown {
+            background: #1e293b;
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        body.dark .dd-btn:hover {
+            background: #0f172a;
+        }
+
+        body.dark .dd-sep {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        body.dark #configList thead tr {
+            background: #1e293b !important;
+        }
+
+        /* hide panels by default */
+        #tcpFields,
+        #rtuFields,
+        #snmpFields {
+            display: none;
+        }
+
+        #snmpFieldsSection {
+            display: none;
+        }
+
+        #modbusRegistersSection {
+            display: block;
+        }
+
+        #modbusSection {
+            display: none;
+        }
+
+        #modbusStep2 {
+            display: none;
+        }
+
+        #mbRegisterOutput {
+            display: none;
+        }
+
+        #cancelEditBtn {
+            display: none;
+        }
+
+        .metric-card canvas {
+            max-height: 30px;
+            width: 100% !important;
+            display: block;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <img src="/static/logo.png" alt="Neutron">
+           <!-- <span>Neutron Automation</span>-->
+        </div>
+        <div class="navbar-right">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/configuration" class="active">Configuration</a>
+            <button id="themeToggle">🌙</button>
+        </div>
+    </nav>
+
+    <!-- ONE shared dropdown menu — repositioned per row click -->
+    <div class="row-dropdown" id="rowDropdown">
+        <button class="dd-btn run" id="dd-run">▶&nbsp; Run</button>
+        <button class="dd-btn stop" id="dd-stop">⏹&nbsp; Stop</button>
+        <div class="dd-sep"></div>
+        <button class="dd-btn edit" id="dd-edit">✏️&nbsp; Edit</button>
+        <button class="dd-btn test" id="dd-test">🔌&nbsp; Test</button>
+        <button class="dd-btn copy" id="dd-copy">⧉&nbsp; Copy</button>
+        <div class="dd-sep"></div>
+        <button class="dd-btn del" id="dd-del">🗑&nbsp; Delete</button>
+    </div>
+
+    <!-- APP LAYOUT -->
+    <div class="app-layout">
+
+        <!-- ══ LEFT SIDEBAR ══ -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Devices</div>
+                <input type="text" id="configSearch" class="search-box" placeholder="Search devices...">
+            </div>
+
+            <div class="sidebar-list">
+                <!--
+                config.js renders into #configList rows like:
+                  <tr data-config-name="mydevice">
+                    <td class="config-name p-3 cursor-pointer">mydevice.conf</td>
+                    <td class="config-status active p-3">Active</td>
+                    <td class="config-actions p-1 flex ...">...buttons...</td>   ← hidden by CSS
+                  </tr>
+                The MutationObserver below appends a ··· <td> to each new row.
+            -->
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f8fafc;border-bottom:1px solid var(--border);">
+                            <th
+                                style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;text-align:left;">
+                                Name</th>
+                            <th
+                                style="padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;text-align:center;">
+                                Status</th>
+                            <th style="width:32px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="configList"></tbody>
+                </table>
+            </div>
+
+
+        </aside>
+
+        <!-- ══ MAIN CONTENT ══ -->
+        <main class="main-content">
+
+            <!-- Detail Header -->
+            <div class="detail-header">
+                <div class="device-icon">⚡</div>
+                <div class="device-meta">
+                    <div class="device-name-row">
+                        <span class="device-name" id="hdr-name">Add/Edit Device</span>
+                        <span class="status-badge" id="hdr-status"
+                            style="display:none;background:#dcfce7;color:#166534;">Active</span>
+                    </div>
+                    <div class="device-info-row" id="hdr-info">Configure or create a new device below</div>
+                </div>
+                <div class="header-actions">
+
+                    <input type="file" id="mibFileInput" accept=".mib,.txt" style="display:none;">
+                    <button id="uploadMibBtn" type="button" class="btn-action">📤 Upload MIB</button>
+                    <button id="browseMibsBtn" type="button" class="btn-action">📂 Browse MIBs</button>
+                    <button id="saveConfigBtn" class="btn-action primary">💾 Save Changes</button>
+                    <button id="cancelEditBtn" class="btn-action danger" onclick="cancelEdit()">✕ Cancel</button>
+                </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+                <div class="tab-item active" data-tab="overview">📊 Overview</div>
+                <div class="tab-item" data-tab="config">⚙️Add/Edit Configuration</div>
+                <div class="tab-item" data-tab="registers">📋 Fields</div>
+                <div class="tab-item" data-tab="tags">🏷️ Tags</div>
+                <div class="tab-item" data-tab="integrations">🔗 Integrations</div>
+                <div class="tab-item" data-tab="logs">📝 Logs</div>
+            </div>
+
+            <!-- Tab Panels -->
+            <div class="tab-panels">
+
+                <!-- ── OVERVIEW TAB ── -->
+                <div class="tab-panel active" id="tab-overview">
+                    <div class="overview-grid">
+                        <div class="card">
+                            <div class="card-title">Device Information</div>
+                            <div class="info-grid">
+                                <div class="info-row"><span class="info-label">Protocol</span><span class="info-value"
+                                        id="ov-protocol">—</span></div>
+                                <div class="info-row"><span class="info-label">Host</span><span class="info-value"
+                                        id="ov-host">—</span></div>
+                                <div class="info-row"><span class="info-label">Port</span><span class="info-value"
+                                        id="ov-port">—</span></div>
+                                <div class="info-row"><span class="info-label">Slave ID</span><span class="info-value"
+                                        id="ov-slave">—</span></div>
+                                <div class="info-row"><span class="info-label">Timeout</span><span class="info-value"
+                                        id="ov-timeout">—</span></div>
+                                <div class="info-row"><span class="info-label">Status</span><span class="info-value"
+                                        style="color:var(--success);">● Active</span></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div
+                                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <div class="card-title" style="margin-bottom:0;">Live Metrics</div>
+                                <span id="refreshBtn"
+                                    style="font-size:10px;color:var(--primary);cursor:pointer;font-weight:600;">⟳
+                                    Refresh</span>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Field</th>
+                                            <th>Address</th>
+                                            <th>Live Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="liveMetricsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Recent Fields -->
+                        <div class="card" style="margin-top:12px;">
+                            <div class="card-title">Recent Fields</div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ov-registers"></tbody>
+                            </table>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="card" style="margin-top:12px;">
+                            <div class="card-title">Tags</div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Label</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ov-tags"></tbody>
+                            </table>
+                        </div>
+
+
+                        <!-- InfluxDB / Integrations summary -->
+                        <div class="card" style="margin-top:12px;">
+                            <div class="card-title">Integrations (InfluxDB)</div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>URL</th>
+                                        <th>Org</th>
+                                        <th>Bucket</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ov-integrations"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="modbusSection" style="display:none;">
+                        <div class="modbus-card">
+                            <div class="modbus-title">Enable Modbus?</div>
+                            <div class="modbus-btn-row">
+                                <button id="modbusYesBtn" class="btn-yes">Yes</button>
+                                <button id="modbusNoBtn" class="btn-no">No</button>
+                            </div>
+                            <div id="modbusStep2" style="display:none;">
+                                <div class="table-wrap" style="margin-bottom:8px;">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Select</th>
+                                                <th>Name</th>
+                                                <th>Original Addr</th>
+                                                <th>Server Addr</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="mbRegisterPickBody"></tbody>
+                                    </table>
+                                </div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button id="saveMbMappingBtn" class="btn-sm btn-primary">Save Mapping</button>
+                                    <button id="readMbRegistersBtn" class="btn-sm btn-success">Read Registers</button>
+                                </div>
+                                <pre id="mbRegisterOutput"
+                                    style="margin-top:8px;background:var(--surface2);padding:8px;border-radius:5px;font-size:10px;"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── CONFIGURATION TAB ── -->
+                <div class="tab-panel" id="tab-config">
+                    <form id="configForm">
+                        <input type="hidden" id="editingConfigName" value="">
+                        <input type="hidden" id="editingRegisterIndex" value="-1">
+                        <input type="hidden" id="editingFieldIndex" value="-1">
+                        <input type="hidden" id="editingTagIndex" value="-1">
+
+                        <div class="form-section">
+                            <div class="form-section-title">Device Settings</div>
+                            <div class="form-grid">
+                                <div class="fg"><label for="name">Device Name</label><input type="text" id="name"
+                                        name="name"></div>
+                                <div class="fg"><label for="timeout">Timeout</label><input type="text" id="timeout"
+                                        name="timeout" value="1s"></div>
+                                <div class="fg">
+                                    <label for="protocol">Protocol</label>
+                                    <select id="protocol" name="protocol" onchange="toggleProtocolFields(this.value)">
+                                        <option value="tcp">Modbus-TCP</option>
+                                        <option value="rtu">Modbus-RTU</option>
+                                        <option value="snmp">SNMP</option>
+                                    </select>
+                                </div>
+                                <div class="fg"><label for="slave_id">Slave ID</label><input type="number" id="slave_id"
+                                        name="slave_id" value="1" min="1"></div>
+
+                                <div class="fg">
+                                    <label for="interval">Interval</label>
+                                    <select id="interval" name="interval">
+                                        <option value="5s">5s</option>
+                                        <option value="10s" selected>10s</option>
+                                        <option value="15s">15s</option>
+                                        <option value="20s">20s</option>
+                                        <option value="30s">30s</option>
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div id="tcpFields" class="form-section">
+                            <div class="form-section-title">TCP Settings</div>
+                            <div class="form-grid">
+                                <div class="fg"><label for="host">Host</label><input type="text" id="host" name="host"
+                                        value="localhost"></div>
+                                <div class="fg"><label>Port</label><input type="number" name="port" value="502"></div>
+                            </div>
+                        </div>
+
+                        <div id="rtuFields" class="form-section">
+                            <div class="form-section-title">RTU Settings</div>
+                            <div class="form-grid">
+                                <div class="fg"><label for="controller">Controller</label><input type="text"
+                                        id="controller" name="controller" value="/dev/ttyS0"></div>
+                                <div class="fg">
+                                    <label for="baud_rate">Baud Rate</label>
+                                    <select id="baud_rate" name="baud_rate">
+                                        <option value="9600">9600</option>
+                                        <option value="19200">19200</option>
+                                        <option value="38400">38400</option>
+                                        <option value="115200">115200</option>
+                                    </select>
+                                </div>
+                                <div class="fg">
+                                    <label for="data_bits">Data Bits</label>
+                                    <select id="data_bits" name="data_bits">
+                                        <option value="7">7</option>
+                                        <option value="8">8</option>
+                                    </select>
+                                </div>
+                                <div class="fg">
+                                    <label for="parity">Parity</label>
+                                    <select id="parity" name="parity">
+                                        <option value="N">None</option>
+                                        <option value="E">Even</option>
+                                        <option value="O">Odd</option>
+                                    </select>
+                                </div>
+                                <div class="fg">
+                                    <label for="stop_bits">Stop Bits</label>
+                                    <select id="stop_bits" name="stop_bits">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="snmpFields" class="form-section">
+                            <div class="form-section-title">SNMP Settings</div>
+                            <div class="form-grid">
+                                <div class="fg"><label>Host</label><input type="text" name="host" value="localhost">
+                                </div>
+                                <div class="fg"><label>Port</label><input type="number" name="port" value="161"></div>
+                                <div class="fg">
+                                    <label for="version">Version</label>
+                                    <select id="version" name="version">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                    </select>
+                                </div>
+                                <div class="fg" id="communityField"><label for="community">Community</label><input
+                                        type="text" id="community" name="community" value="public"></div>
+                            </div>
+
+                            <div id="snmpV3Fields" style="display:none;">
+                                <div class="form-grid-3">
+                                    <div class="fg">
+                                        <label for="secName">Security Name</label>
+                                        <input type="text" id="secName" name="sec_name" placeholder="e.g., myuser">
+                                    </div>
+                                    <div class="fg">
+                                        <label for="secLevel">Security Level</label>
+                                        <select id="secLevel" name="sec_level">
+                                            <option value="noAuthNoPriv">noAuthNoPriv</option>
+                                            <option value="authNoPriv">authNoPriv</option>
+                                            <option value="authPriv">authPriv</option>
+                                        </select>
+                                    </div>
+                                    <div class="fg">
+                                        <label for="authProtocol">Auth Protocol</label>
+                                        <select id="authProtocol" name="auth_protocol">
+                                            <option value="">None</option>
+                                            <option value="MD5">MD5</option>
+                                            <option value="SHA">SHA</option>
+                                        </select>
+                                    </div>
+                                    <div class="fg">
+                                        <label for="authPassword">Auth Password</label>
+                                        <input type="password" id="authPassword" name="auth_password">
+                                    </div>
+                                    <div class="fg">
+                                        <label for="privProtocol">Privacy Protocol</label>
+                                        <select id="privProtocol" name="priv_protocol">
+                                            <option value="">None</option>
+                                            <option value="DES">DES</option>
+                                            <option value="AES">AES</option>
+                                        </select>
+                                    </div>
+                                    <div class="fg">
+                                        <label for="privPassword">Privacy Password</label>
+                                        <input type="password" id="privPassword" name="priv_password">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button type="button" id="saveConfigBtn2" class="btn-save-config" onclick="document.getElementById('saveConfigBtn').click()">💾 Save Configuration</button>
+                    </div> -->
+                    </form>
+                </div>
+
+                <!-- ── REGISTERS TAB ── -->
+                <div class="tab-panel" id="tab-registers">
+                    <div id="modbusRegistersSection">
+                        <div class="form-section">
+                            <div class="form-section-title">Add / Update Field</div>
+                            <div class="form-grid">
+                                <div class="fg">
+                                    <label for="registerType">Field Type</label>
+                                    <select id="registerType">
+                                        <option value="discrete_inputs">Discrete Inputs</option>
+                                        <option value="coils">Coils</option>
+                                        <option value="holding_registers">Holding Registers</option>
+                                        <option value="input_registers">Input Registers</option>
+                                    </select>
+                                </div>
+                                <div class="fg"><label for="regName">Name</label><input type="text" id="regName"></div>
+                                <div class="fg"><label for="regAddress">Address</label><input type="text"
+                                        id="regAddress" placeholder="e.g., 0"></div>
+                                <div class="fg" id="byteOrderGroup">
+                                    <label id="byteOrderLabel" for="byteOrder">Byte Order</label>
+                                    <select id="byteOrder">
+                                        <option value="AB">AB</option>
+                                        <option value="BA">BA</option>
+                                        <option value="ABCD">ABCD</option>
+                                        <option value="DCBA">DCBA</option>
+                                        <option value="BADC">BADC</option>
+                                        <option value="CDAB">CDAB</option>
+                                        <option value="ABCDEFGH">ABCDEFGH</option>
+                                        <option value="HGFEDCBA">HGFEDCBA</option>
+                                        <option value="BADCFEHG">BADCFEHG</option>
+                                        <option value="GHEFCDAB">GHEFCDAB</option>
+                                    </select>
+                                    <p id="byteOrderWarning"></p>
+                                </div>
+                                <div class="fg" id="dataTypeGroup">
+                                    <label for="dataType">Data Type</label>
+                                    <select id="dataType">
+                                        <option value="BIT">BIT</option>
+                                        <option value="INT8L">INT8L</option>
+                                        <option value="INT8H">INT8H</option>
+                                        <option value="UINT8L">UINT8L</option>
+                                        <option value="UINT8H">UINT8H</option>
+                                        <option value="INT16">INT16</option>
+                                        <option value="UINT16">UINT16</option>
+                                        <option value="INT32">INT32</option>
+                                        <option value="UINT32">UINT32</option>
+                                        <option value="INT64">INT64</option>
+                                        <option value="UINT64">UINT64</option>
+                                        <option value="FLOAT16-IEEE">FLOAT16-IEEE</option>
+                                        <option value="FLOAT32-IEEE">FLOAT32-IEEE</option>
+                                        <option value="FLOAT64-IEEE">FLOAT64-IEEE</option>
+                                        <option value="FIXED">FIXED</option>
+                                        <option value="UFIXED">UFIXED</option>
+                                        <option value="STRING">STRING</option>
+                                    </select>
+                                </div>
+                                <div class="fg" id="scaleGroup">
+                                    <label for="regScale">Scale</label>
+                                    <input type="number" id="regScale" value="1.0" step="0.1">
+                                </div>
+                                <div class="fg">
+                                    <label>&nbsp;</label>
+                                    <button type="button" id="addRegisterBtn" onclick="addRegister()" class="btn-add">+
+                                        Add Field</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-section-title">Fields List</div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:center;">Enable</th>
+                                        <th>Type</th>
+                                        <th>Name</th>
+                                        <th>Address</th>
+                                        <th>Order</th>
+                                        <th>Data Type</th>
+                                        <th>Scale</th>
+                                        <th style="text-align:center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="registersTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="snmpFieldsSection" style="display:none;margin-top:14px;">
+                        <div class="form-section">
+                            <div class="form-section-title">Add / Update SNMP Field</div>
+                            <div class="form-grid">
+                                <div class="fg"><label for="fieldName">Name</label><input type="text" id="fieldName"
+                                        placeholder="Field Name"></div>
+                                <div class="fg"><label for="fieldOid">OID</label><input type="text" id="fieldOid"
+                                        placeholder="1.3.6.1..."></div>
+                                <div class="fg">
+                                    <label>Is Tag</label>
+                                    <div class="is-tag-pill"><input type="checkbox" id="fieldIsTag"><span
+                                            class="is-tag-text">Enable</span></div>
+                                </div>
+                                <div class="fg"><label>&nbsp;</label><button type="button" id="addFieldBtn"
+                                        onclick="addField()" class="btn-add">+ Add Field</button></div>
+                            </div>
+                        </div>
+                        <div class="form-section-title">SNMP Fields List</div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:center;">Enable</th>
+                                        <th>Field Name</th>
+                                        <th>OID Address</th>
+                                        <th style="text-align:center;">Tag</th>
+                                        <th style="text-align:center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fieldsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── TAGS TAB ── -->
+                <div class="tab-panel" id="tab-tags">
+                    <div class="form-section">
+                        <div class="form-section-title">Add / Update Tag</div>
+                        <div class="form-grid-3">
+                            <div class="fg"><label for="tagLabel">Label</label><input type="text" id="tagLabel"
+                                    placeholder="e.g., Location"></div>
+                            <div class="fg"><label for="tagValue">Value</label><input type="text" id="tagValue"
+                                    placeholder="e.g., Factory-A"></div>
+                            <div class="fg"><label>&nbsp;</label><button type="button" id="addTagBtn" onclick="addTag()"
+                                    class="btn-add">+ Add Tag</button></div>
+                        </div>
+                    </div>
+                    <div class="form-section-title">Tags List</div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:center;">Enable</th>
+                                    <th>Label</th>
+                                    <th>Value</th>
+                                    <th style="text-align:center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tagsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ── INTEGRATIONS TAB ── -->
+                <div class="tab-panel" id="tab-integrations">
+                    <div class="form-section">
+                        <div class="form-section-title">InfluxDB v2 Output</div>
+                        <div class="form-grid">
+                            <div class="fg"><label for="influxUrls">URL</label><input type="text" id="influxUrls"
+                                    value="http://localhost:8086"></div>
+                            <div class="fg"><label for="influxToken">Token</label><input type="text" id="influxToken">
+                            </div>
+                            <div class="fg"><label for="influxOrg">Organization</label><input type="text"
+                                    id="influxOrg"></div>
+                            <div class="fg"><label for="influxBucket">Bucket</label><input type="text"
+                                    id="influxBucket"></div>
+                            <div class="fg"><label>&nbsp;</label><button type="button" id="addInfluxBtn"
+                                    class="btn-add">+ Add InfluxDB</button></div>
+                        </div>
+                    </div>
+                    <div class="form-section-title">InfluxDB Entries</div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>URL</th>
+                                    <th>Token</th>
+                                    <th>Org</th>
+                                    <th>Bucket</th>
+                                    <th style="text-align:center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="influxTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ── LOGS TAB ── -->
+                <!-- IN tab-logs panel, REPLACE existing content with: -->
+                <div class="tab-panel" id="tab-logs">
+                    <div class="card">
+                        <div class="card-title">Logs</div>
+                        <pre id="testOutput"
+                            style="font-size:11px;color:var(--text2);min-height:400px;max-height:70vh;background:var(--surface2);padding:10px;border-radius:5px;white-space:pre-wrap;overflow:auto;">Ready.</pre>
+                    </div>
+                </div>
+
+            </div><!-- /tab-panels -->
+        </main>
+    </div><!-- /app-layout -->
+
+    <!-- Browse Previously Uploaded MIBs Modal -->
+    <div id="browseMibsOverlay"
+        style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;align-items:center;justify-content:center;">
+        <div
+            style="background:var(--surface);border-radius:10px;width:680px;max-width:94vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+            <div
+                style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-weight:700;font-size:15px;">📂 Previously Uploaded MIB Files</span>
+                    <span id="browseMibsCount" style="font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 8px;border-radius:12px;">0 files</span>
+                </div>
+                <span onclick="document.getElementById('browseMibsOverlay').style.display='none';"
+                    style="cursor:pointer;font-size:16px;color:var(--text2);padding:4px;">✕</span>
+            </div>
+            <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;">
+                <input type="text" id="browseMibsSearch" placeholder="Search uploaded MIB files..."
+                    style="flex:1;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+                <button type="button" id="browseMibsRefreshBtn" class="btn-action" style="white-space:nowrap;">⟳ Refresh</button>
+            </div>
+            <div style="overflow-y:auto;flex:1;padding:12px 18px;">
+                <table class="data-table" id="browseMibsTable" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Last Modified</th>
+                            <th>Status</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="browseMibsList"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MIB Walk Modal -->
+    <div id="mibWalkOverlay"
+        style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;align-items:center;justify-content:center;">
+        <div
+            style="background:var(--surface);border-radius:10px;width:950px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div style="font-weight:700;font-size:15px;color:var(--text);">MIB Walk
+                        <span style="font-weight:600;color:var(--primary,#6366f1);">— <span id="mibWalkFilename"></span></span>
+                    </div>
+                    <span onclick="closeMibWalkModal();"
+                        style="cursor:pointer;font-size:18px;line-height:1;color:var(--text2);padding:2px;">✕</span>
+                </div>
+                <div id="mibWalkHeaderSubrow" style="display:flex;align-items:center;gap:14px;margin-top:6px;">
+                    <span id="mibWalkLiveSource" style="font-size:11px;color:var(--text2);white-space:nowrap;"></span>
+                </div>
+            </div>
+
+            <!-- Direct SNMP Query Toolbar (Commented out for future use)
+            <div style="padding:8px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;">
+                <span style="font-weight:600;color:var(--text);">⚡ Direct SNMP Live Query:</span>
+                <input type="text" id="snmpDirectHost" placeholder="Host IP (e.g. 192.168.1.1)" style="width:150px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
+                <input type="number" id="snmpDirectPort" placeholder="Port" value="161" style="width:60px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
+                <input type="text" id="snmpDirectCommunity" placeholder="Community" value="public" style="width:90px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
+                <button type="button" id="snmpDirectQueryBtn" class="btn-action primary" style="height:26px;line-height:24px;padding:0 10px;font-size:11px;white-space:nowrap;">Fetch Live Values</button>
+                <span id="snmpQueryStatus" style="color:var(--text2);margin-left:auto;"></span>
+            </div>
+            -->
+
+            <div style="padding:12px 20px;display:flex;gap:10px;align-items:center;background:var(--surface2);border-bottom:1px solid var(--border);">
+                <input type="text" id="mibWalkSearch" placeholder="Search by name, OID, or value..."
+                    style="flex:1;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+                <button type="button" id="mibWalkViewToggle" class="btn-action" style="white-space:nowrap;">☰ Flat View</button>
+                <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;cursor:pointer;">
+                    <input type="checkbox" id="mibWalkLiveToggle"> Live refresh
+                </label>
+                <button type="button" id="mibWalkRefreshBtn" class="btn-action" style="white-space:nowrap;">⟳ Refresh</button>
+            </div>
+            <div style="overflow:auto;flex:1;padding:0 18px 18px;">
+                <table class="data-table" id="mibWalkTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="mibWalkSelectAll"></th>
+                            <th class="mib-sort-th" data-sort="name" style="cursor:pointer;white-space:nowrap;">Name<span class="mib-sort-arrow"></span></th>
+                            <th class="mib-sort-th" data-sort="oid" style="cursor:pointer;white-space:nowrap;">OID<span class="mib-sort-arrow"></span></th>
+                            <th class="mib-sort-th" data-sort="syntax" style="cursor:pointer;white-space:nowrap;width:100px;">Syntax<span class="mib-sort-arrow"></span></th>
+                            <th class="mib-sort-th" data-sort="type" style="cursor:pointer;white-space:nowrap;width:130px;">Type<span class="mib-sort-arrow"></span></th>
+                            <th class="mib-sort-th" data-sort="value" style="cursor:pointer;white-space:nowrap;width:120px;">Value<span class="mib-sort-arrow"></span></th>
+                            <th>Rename (used in Fields tab)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mibWalkResults"></tbody>
+                </table>
+            </div>
+            <div
+                style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--border);">
+                <span id="mibWalkSelectedCount" style="font-size:11px;color:var(--text2);">0 selected</span>
+                <button type="button" id="mibWalkAddSelectedBtn" class="btn-action primary">+ Add Selected</button>
+            </div>
+        </div>
+    </div>
+   	
+    <script src="/static/config.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // THREE-DOT DROPDOWN
+        //
+        // config.js sets data-config-name="<name>" on every <tr> it appends to
+        // #configList (see renderConfigs in config.js: row.dataset.configName = name).
+        // We observe mutations on #configList, detect new rows, and append a ···
+        // button as a 4th <td>.  The .config-actions td is hidden via CSS.
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        var dropdown = document.getElementById('rowDropdown');
+        var activeTrigger = null;
+
+        function openRowMenu(triggerBtn, configName) {
+            // clicking the same ··· again closes the menu
+            if (activeTrigger === triggerBtn && dropdown.classList.contains('open')) {
+                closeRowMenu();
+                return;
+            }
+            activeTrigger = triggerBtn;
+
+            // position
+            var rect = triggerBtn.getBoundingClientRect();
+            var left = rect.right - 160;
+            if (left < 6) left = 6;
+            var top = rect.bottom + 4;
+            if (top + 240 > window.innerHeight) top = rect.top - 244;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+
+            // bind actions — these are the exact global functions defined in config.js
+            document.getElementById('dd-run').onclick = function () { closeRowMenu(); startService(configName); };
+            document.getElementById('dd-stop').onclick = function () { closeRowMenu(); stopService(configName); };
+            document.getElementById('dd-edit').onclick = function () { closeRowMenu(); editConfig(configName); };
+            document.getElementById('dd-test').onclick = function () { closeRowMenu(); testConfig(configName); };
+            document.getElementById('dd-copy').onclick = function () { closeRowMenu(); duplicateConfig(configName); };
+            document.getElementById('dd-del').onclick = function () { closeRowMenu(); deleteConfig(configName); };
+
+            dropdown.classList.add('open');
+        }
+
+        function closeRowMenu() {
+            dropdown.classList.remove('open');
+            activeTrigger = null;
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && activeTrigger && !activeTrigger.contains(e.target)) {
+                closeRowMenu();
+            }
+        });
+        window.addEventListener('scroll', closeRowMenu, true);
+        window.addEventListener('resize', closeRowMenu);
+
+        // ── Inject ··· button into each row rendered by config.js ──────────────────
+        function patchSidebarRows() {
+            // config.js sets row.dataset.configName — that's what we read
+            document.querySelectorAll('#configList tr[data-config-name]').forEach(function (row) {
+                if (row.dataset.dotPatched) return;
+                row.dataset.dotPatched = '1';
+
+                var configName = row.dataset.configName;
+
+                var dotTd = document.createElement('td');
+                dotTd.style.cssText = 'width:32px;text-align:center;padding:0 4px;vertical-align:middle;';
+
+                var btn = document.createElement('button');
+                btn.className = 'three-dot-btn';
+                btn.title = 'Actions';
+                btn.textContent = '···';
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    openRowMenu(btn, configName);
+                });
+
+                dotTd.appendChild(btn);
+                row.appendChild(dotTd);
+            });
+        }
+
+        // Watch for new rows that config.js injects
+        var observer = new MutationObserver(function () { setTimeout(patchSidebarRows, 0); });
+        observer.observe(document.getElementById('configList'), { childList: true, subtree: true });
+        patchSidebarRows(); // immediate pass in case config.js already ran
+
+        // ── TAB SWITCHING ───────────────────────────────────────────────────────────
+        document.querySelectorAll('.tab-item').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('.tab-item').forEach(function (t) { t.classList.remove('active'); });
+                document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ── DARK MODE ───────────────────────────────────────────────────────────────
+        // if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark');
+        // document.getElementById('themeToggle').addEventListener('click', function() {
+        //     document.body.classList.toggle('dark');
+        //     localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+        // });
+
+        // // ── SYNC LIVE → QUICK STATUS ────────────────────────────────────────────────
+        // setInterval(function() {
+        //     document.getElementById('qs-v').textContent  = document.getElementById('live-voltage').textContent + ' V';
+        //     document.getElementById('qs-c').textContent  = document.getElementById('live-current').textContent + ' A';
+        //     document.getElementById('qs-pf').textContent = document.getElementById('live-pf').textContent;
+        //     document.getElementById('qs-f').textContent  = document.getElementById('live-freq').textContent + ' Hz';
+        // }, 2000);
+
+        // ── WRAP editConfig TO ALSO UPDATE THE DETAIL HEADER ───────────────────────
+        // config.js defines editConfig globally; we wrap it so the header updates too
+        document.addEventListener('DOMContentLoaded', function () {
+            var _orig = window.editConfig;
+            if (typeof _orig !== 'function') return;
+            window.editConfig = function (name) {
+                _orig(name);
+                document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                document.querySelector('[data-tab="overview"]').classList.add('active');
+                document.getElementById('tab-overview').classList.add('active');
+                document.getElementById('hdr-name').textContent = name;
+                document.getElementById('hdr-status').style.display = 'inline-block';
+                document.getElementById('hdr-info').textContent = 'Editing configuration';
+            };
+        });
+
+        // ── WRAP testConfig TO ALSO JUMP TO THE LOGS TAB ───────────────────────────
+        // config.js defines testConfig globally; we wrap it so clicking Test switches
+        // the view to the Logs tab (where #testOutput lives) so the result is visible.
+        document.addEventListener('DOMContentLoaded', function () {
+            var _origTest = window.testConfig;
+            if (typeof _origTest !== 'function') return;
+            window.testConfig = function (name) {
+                _origTest(name);
+                document.querySelectorAll('.tab-item').forEach(function (t) { t.classList.remove('active'); });
+                document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+                document.querySelector('[data-tab="logs"]').classList.add('active');
+                document.getElementById('tab-logs').classList.add('active');
+            };
+        });
+
+    </script>
+</body>
+
+</html>

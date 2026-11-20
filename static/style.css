@@ -1,0 +1,45 @@
+/* style.css - Neutron Automation */
+/* All core styles are in the HTML <style> block.
+   Add any additional overrides here. */
+
+/* Status colors for config list */
+.config-status.active td { color: #166534; }
+.config-status.inactive td { color: #991b1b; }
+
+/* Config list row status text */
+tr .config-status.active { color: #166534; font-weight: 600; font-size: 11px; }
+tr .config-status.inactive { color: #991b1b; font-weight: 600; font-size: 11px; }
+tr .config-status.unknown { color: #94a3b8; font-weight: 600; font-size: 11px; }
+
+/* Sidebar config list cells */
+#configList td {
+    padding: 5px 8px;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    vertical-align: middle;
+}
+#configList tr:hover td { background: #f8fafc; }
+body.dark #configList tr:hover td { background: rgba(255,255,255,0.03); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
