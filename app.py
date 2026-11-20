@@ -7,7 +7,8 @@ import subprocess
 import io
 import re
 import bisect
-import json  
+import json
+import socket
 import paho.mqtt.client as mqtt
 import threading
 import time
@@ -17,12 +18,17 @@ app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'configs')
 SYSTEMD_DIR = '/etc/systemd/system'
-MAX_CONFIGS = 100
+MAX_CONFIGS = 5
 add_lock = threading.Lock()
+
+# Optional MQTT broker credentials (leave empty if Mosquitto allows anonymous local connections)
+MQTT_HOST = os.environ.get('MQTT_HOST', '127.0.0.1')
+MQTT_PORT = int(os.environ.get('MQTT_PORT', '1883'))
+MQTT_USER = os.environ.get('MQTT_USER', 'neutron')
+MQTT_PASS = os.environ.get('MQTT_PASS', 'neutron')
 
 if not os.path.exists(CONFIG_DIR):
     os.makedirs(CONFIG_DIR)
-
 
 MODBUS_CONFIG = os.path.join(os.path.dirname(__file__), 'modbus_config.json')
 
@@ -53,9 +59,7 @@ def config_limit_error(used: int):
         'message': f'Configuration limit exceeded. This controller supports up to {MAX_CONFIGS} saved config files; {used} are already saved.'
     }), 403
 
-# Standard SMI tree anchors — most vendor MIBs eventually root their custom
-# objects under one of these well-known names (e.g. "enterprises"), even
-# when the MIBs that formally define those anchors aren't uploaded.
+
 STANDARD_OID_ANCHORS = {
     'iso': '1', 'org': '1.3', 'dod': '1.3.6', 'internet': '1.3.6.1',
     'directory': '1.3.6.1.1', 'mgmt': '1.3.6.1.2', 'mib-2': '1.3.6.1.2.1',
@@ -66,32 +70,9 @@ STANDARD_OID_ANCHORS = {
 
 
 def parse_mib_oids(mib_text):
-    """Lightweight, dependency-free MIB parser.
-
-    Extracts every `NAME <KIND> ... ::= { PARENT SUBID }` assignment
-    (OBJECT-TYPE, OBJECT IDENTIFIER, MODULE-IDENTITY, OBJECT-IDENTITY,
-    NOTIFICATION-TYPE) and resolves each to a full dotted OID by walking
-    up parents until it hits a STANDARD_OID_ANCHORS root. This is not a
-    full ASN.1 compiler — it does not follow IMPORTS from other MIB
-    files, so an object whose parent chain depends on a MIB that wasn't
-    uploaded will be skipped rather than guessed at.
-
-    Some vendor MIBs (often auto-generated per repeated hardware unit,
-    e.g. one section per PDU in a stack) reuse the exact same
-    intermediate node name across multiple sections instead of giving
-    each its own unique name — a copy-paste bug in the MIB itself, but
-    a common one. A simple "last definition wins" lookup would corrupt
-    every section but the last, so each name is resolved using the
-    definition of its parent that appears *nearest before it in the
-    file*, not just whichever definition of that name happens to be
-    last overall. This matches how these repeated-section MIBs are
-    actually laid out.
-    """
-    text = re.sub(r'--.*', '', mib_text)  # strip MIB comments
-    text = re.sub(r'IMPORTS\b.*?;', '', text, flags=re.DOTALL)  # drop IMPORTS clause(s) —
-    # these list symbol names like OBJECT-TYPE/MODULE-IDENTITY right before
-    # "FROM <module>", which otherwise looks exactly like a real definition
-    # and confuses the matcher below.
+    """Lightweight, dependency-free MIB parser."""
+    text = re.sub(r'--.*', '', mib_text)
+    text = re.sub(r'IMPORTS\b.*?;', '', text, flags=re.DOTALL)
 
     pattern = re.compile(
         r'(?P<name>[a-zA-Z][a-zA-Z0-9\-]*)\s+'
@@ -101,8 +82,8 @@ def parse_mib_oids(mib_text):
     )
     syntax_pattern = re.compile(r'SYNTAX\s+([A-Za-z0-9_\-]+)')
 
-    by_name = {}   # name -> list of definitions (in file order), each with its text position
-    order = []     # every definition, in file order
+    by_name = {}
+    order = []
     for m in pattern.finditer(text):
         block = m.group(0)
         syn_m = syntax_pattern.search(block)
@@ -127,8 +108,6 @@ def parse_mib_oids(mib_text):
     resolved_cache = {}
 
     def resolve_entry(entry, seen=None):
-        # Resolves an entry we already have in hand (its own parent/subid are
-        # known directly — no name lookup needed for itself, only for its parent).
         key = (entry['name'], entry['pos'])
         if key in resolved_cache:
             return resolved_cache[key]
@@ -144,8 +123,6 @@ def parse_mib_oids(mib_text):
         return oid
 
     def resolve_parent(name, before_pos, seen):
-        # Resolves a *referenced* parent name by finding whichever definition
-        # of that name appears nearest before this point in the file.
         if name in STANDARD_OID_ANCHORS:
             return STANDARD_OID_ANCHORS[name]
         entry = find_nearest(name, before_pos)
@@ -161,91 +138,73 @@ def parse_mib_oids(mib_text):
     results.sort(key=lambda r: [int(p) for p in r['oid'].split('.')])
     return results
 
-# MQTT live data
+
+# MQTT live data store
 live_data = {}
-
-# def on_message(client, userdata, msg):
-#     try:
-#         payload = json.loads(msg.payload)
-
-#         # Use the device name from payload tags if present
-#         device = payload.get("tags", {}).get("name", msg.topic.split('/')[0])
-
-#         # Store fields in live_data
-#         if 'fields' in payload:
-#             live_data[device] = payload['fields']
-#         else:
-#             live_data[device] = payload
-
-#     except Exception as e:
-#         print("MQTT ERROR:", e)
+live_data_lock = threading.Lock()
 
 
 def get_configured_device_names():
-    """Extract 'name' field from all saved .conf files"""
+    """Extract 'name' field from all saved .conf files."""
     names = set()
     for f in os.listdir(CONFIG_DIR):
         if f.endswith('.conf'):
             try:
                 with open(os.path.join(CONFIG_DIR, f)) as cf:
                     config = toml.load(cf)
-                # Check modbus or snmp name
                 for proto in ['modbus', 'snmp']:
                     entries = config.get('inputs', {}).get(proto, [])
                     for entry in entries:
                         if 'name' in entry:
                             names.add(entry['name'])
-            except:
+            except Exception:
                 pass
     return names
 
-# def on_message(client, userdata, msg):
-#     try:
-#         payload = json.loads(msg.payload)
-#         device = payload.get("tags", {}).get("name", msg.topic.split('/')[0])
-        
-#         print("MQTT received:", device, payload)  # ← ADD THIS
-        
 
-#         # ✅ Only allow configured device names
-#         if device not in get_configured_device_names():
-#             return
-
-#         if 'fields' in payload:
-#             live_data[device] = {
-#                 "fields": payload['fields'],
-#                 "timestamp": time.time()
-#             }
-#     except Exception as e:
-#         print("MQTT ERROR:", e)
-
+def on_connect(client, userdata, flags, reason_code, properties=None):
+    if reason_code == 0:
+        print("MQTT connected, subscribing to #")
+        client.subscribe("#")
+    else:
+        print(f"MQTT connection failed with reason code: {reason_code}")
 
 
 def on_message(client, userdata, msg):
     try:
-        payload = json.loads(msg.payload)
-        device = payload.get("tags", {}).get("name") or payload.get("name", msg.topic.split('/')[0])
-        if 'fields' in payload:
-            live_data[device] = {
-                "fields": payload['fields'],
-                "timestamp": time.time()
-            }
+        payload = json.loads(msg.payload.decode('utf-8', errors='ignore'))
+        if not isinstance(payload, dict):
+            return
+        tags = payload.get("tags") if isinstance(payload.get("tags"), dict) else {}
+        device = tags.get("name") or payload.get("name") or msg.topic.split('/')[0]
+        if 'fields' in payload and isinstance(payload['fields'], dict):
+            with live_data_lock:
+                existing = live_data.get(device, {}).get("fields", {})
+                merged = {**existing, **payload['fields']}
+                live_data[device] = {
+                    "fields": merged,
+                    "timestamp": time.time()
+                }
     except Exception as e:
         print("MQTT ERROR:", e)
 
 
-
 mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+if MQTT_USER:
+    mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
+mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
+mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
 try:
-    mqtt_client.connect("127.0.0.1", 1883, 60)
-    mqtt_client.subscribe("#")
-    threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
+    mqtt_client.connect_async(MQTT_HOST, MQTT_PORT, 60)
+    mqtt_client.loop_start()
 except Exception as err:
-    print(f"MQTT failed: {err}")
+    print(f"MQTT init failed: {err}")
+
 
 def get_current_time():
     return datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
+
 
 def validate_addresses(addresses_str):
     errors = []
@@ -264,6 +223,7 @@ def validate_addresses(addresses_str):
     except Exception as e:
         errors.append(f"Invalid address format: {str(e)}")
         return errors, []
+
 
 def generate_telegraf_conf(data):
     conf = f'# Generated by Device UI on {get_current_time()}\n'
@@ -300,9 +260,8 @@ def generate_telegraf_conf(data):
         conf += '  configuration_type = "register"\n'
         if data['protocol'] == 'tcp':
             conf += f'  controller = "tcp://{data["host"]}:{data["port"]}"\n'
-            conf += '  transmission_mode = "TCP"\n'   # ← ADD
-            conf += '  busy_retries = 3\n'            # ← ADD
-
+            conf += '  transmission_mode = "TCP"\n'
+            conf += '  busy_retries = 3\n'
         else:
             conf += f'  controller = "{data["controller"]}"\n'
             conf += f'  baud_rate = {data["baud_rate"]}\n'
@@ -339,14 +298,17 @@ def generate_telegraf_conf(data):
         conf += f'  organization = "{db.get("organization", "")}"\n'
         conf += f'  bucket = "{db.get("bucket", "")}"\n'
 
-          # ← ONLY for modbus
     conf += '\n[[outputs.mqtt]]\n'
-    conf += '  servers = ["tcp://127.0.0.1:1883"]\n'
+    conf += f'  servers = ["tcp://{MQTT_HOST}:{MQTT_PORT}"]\n'
+    if MQTT_USER:
+        conf += f'  username = "{MQTT_USER}"\n'
+        conf += f'  password = "{MQTT_PASS}"\n'
     topic = "neutron/snmp/data" if data['protocol'] == 'snmp' else "neutron/modbus/data"
     conf += f'  topic = "{topic}"\n'
     conf += '  data_format = "json"\n'
-        
+
     return conf
+
 
 def create_systemd_service(name):
     service_name = f'telegraf-{name}.service'
@@ -371,17 +333,21 @@ WantedBy=multi-user.target
     except Exception as e:
         raise Exception(f"Failed to create systemd service {service_name}: {str(e)}")
 
+
 @app.route('/')
 def index():
     return render_template('dashboard.html')
+
 
 @app.route('/configuration')
 def config():
     return render_template('config.html')
 
+
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
+
 
 @app.route('/configs', methods=['GET'])
 def list_configs():
@@ -390,6 +356,7 @@ def list_configs():
         return jsonify(configs)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/config/<name>', methods=['GET'])
 def get_config(name):
@@ -451,6 +418,7 @@ def get_config(name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/config/<name>', methods=['POST'])
 def save_config(name):
     try:
@@ -475,6 +443,7 @@ def save_config(name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/config/<name>', methods=['DELETE'])
 def delete_config(name):
     try:
@@ -488,6 +457,7 @@ def delete_config(name):
         return jsonify({'message': 'Config deleted'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/service/<name>', methods=['DELETE'])
 def delete_service(name):
@@ -503,6 +473,7 @@ def delete_service(name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/start_service/<name>', methods=['POST'])
 def start_service(name):
     try:
@@ -517,12 +488,13 @@ def start_service(name):
             if used > MAX_CONFIGS:
                 return config_limit_error(used)
             create_systemd_service(name)
-            subprocess.run(['systemctl', 'start', service_name], check=True)
+            subprocess.run(['systemctl', 'restart', service_name], check=True)
         return jsonify({'message': f'Service {service_name} started'})
     except subprocess.CalledProcessError as e:
         return jsonify({'error': f'Failed to start service: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/stop_service/<name>', methods=['POST'])
 def stop_service(name):
@@ -538,6 +510,7 @@ def stop_service(name):
         return jsonify({'error': f'Failed to stop service: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/service_status/<name>', methods=['GET'])
 def service_status(name):
@@ -556,6 +529,7 @@ def service_status(name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/test_config/<name>', methods=['GET'])
 def test_config(name):
     try:
@@ -571,6 +545,7 @@ def test_config(name):
         return jsonify({'error': 'Telegraf test timed out'}), 500
     except Exception as e:
         return jsonify({'error': f'Telegraf test failed: {str(e)}'}), 500
+
 
 @app.route('/test_config_from_data', methods=['POST'])
 def test_config_from_data():
@@ -597,6 +572,7 @@ def test_config_from_data():
     except Exception as e:
         return jsonify({'error': f'Telegraf test failed: {str(e)}'}), 500
 
+
 @app.route('/download/<name>', methods=['GET'])
 def download_config(name):
     try:
@@ -608,6 +584,7 @@ def download_config(name):
         return send_file(filepath, as_attachment=True, download_name=f'{name}.conf')
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/generate_conf', methods=['POST'])
 def generate_conf():
@@ -624,6 +601,7 @@ def generate_conf():
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/duplicate_config/<name>', methods=['POST'])
 def duplicate_config(name):
@@ -655,6 +633,7 @@ def duplicate_config(name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/dashboard/stats', methods=['GET'])
 def dashboard_stats():
     try:
@@ -672,13 +651,10 @@ def dashboard_stats():
         return jsonify({'error': str(e)}), 500
 
 
-
 @app.route('/api/modbus_config', methods=['POST'])
 def save_modbus_config():
     try:
         data = request.json
-
-        # basic validation
         mapping = data.get("mapping", {})
         used = set()
 
@@ -686,9 +662,9 @@ def save_modbus_config():
             reg = cfg["register"]
             length = cfg.get("length", 1)
 
-            if not (1 <= reg <= 100   or 10001 <= reg <= 10100 or 
+            if not (1 <= reg <= 100 or 10001 <= reg <= 10100 or
                     30001 <= reg <= 30100 or 40001 <= reg <= 40100):
-                  return {"error": f"Invalid register {reg}"}, 400
+                return {"error": f"Invalid register {reg}"}, 400
 
             for i in range(length):
                 if (reg + i) in used:
@@ -699,10 +675,8 @@ def save_modbus_config():
             json.dump(data, f, indent=2)
 
         return {"message": "Modbus config saved"}
-
     except Exception as e:
         return {"error": str(e)}, 500
-
 
 
 @app.route('/api/modbus_config', methods=['GET'])
@@ -719,25 +693,22 @@ def get_modbus_config():
 @app.route('/modbus/status', methods=['GET'])
 def modbus_status():
     try:
-        running = False  # or check actual service if needed
-
+        running = False
         mapping = {}
         if os.path.exists(MODBUS_CONFIG):
             with open(MODBUS_CONFIG) as f:
                 mapping = json.load(f).get("mapping", {})
-
         return jsonify({
             "running": running,
             "mapping": mapping
         })
     except Exception as e:
-        return {"error": str(e)}, 500   
+        return {"error": str(e)}, 500
 
-           
+
 @app.route('/api/modbus/expose_defaults/<name>', methods=['GET'])
 def modbus_expose_defaults(name):
     try:
-        # Example defaults for holding registers
         mapping = {
             "Voltage": {"register": 40001, "length": 1},
             "Current": {"register": 40003, "length": 1},
@@ -749,9 +720,195 @@ def modbus_expose_defaults(name):
         return jsonify({"error": str(e)}), 500
 
 
+def snmp_get_batch(host, port, community, oids, version=2):
+    """Pure Python SNMP v1/v2c GET request implementation over UDP socket."""
+    if not oids:
+        return {}
+
+    def encode_tlv(tag, payload):
+        if len(payload) < 128:
+            length_bytes = bytes([len(payload)])
+        else:
+            lb = []
+            l = len(payload)
+            while l > 0:
+                lb.insert(0, l & 0xff)
+                l >>= 8
+            length_bytes = bytes([0x80 | len(lb)] + lb)
+        return bytes([tag]) + length_bytes + payload
+
+    def encode_integer(val):
+        if val == 0:
+            return encode_tlv(0x02, b'\x00')
+        b = []
+        neg = val < 0
+        if neg:
+            val = (1 << (val.bit_length() + 8)) + val
+        while val > 0:
+            b.insert(0, val & 0xff)
+            val >>= 8
+        if not neg and b[0] & 0x80:
+            b.insert(0, 0)
+        return encode_tlv(0x02, bytes(b))
+
+    def encode_octet_string(s):
+        if isinstance(s, str):
+            s = s.encode('utf-8')
+        return encode_tlv(0x04, s)
+
+    def encode_oid(oid_str):
+        parts = [int(p) for p in oid_str.strip('.').split('.') if p != '']
+        if len(parts) < 2:
+            return b''
+        first_byte = parts[0] * 40 + parts[1]
+        encoded = [first_byte]
+        for subid in parts[2:]:
+            sub_bytes = []
+            while subid > 0:
+                sub_bytes.insert(0, (subid & 0x7f) | (0x80 if sub_bytes else 0))
+                subid >>= 7
+            if not sub_bytes:
+                sub_bytes = [0]
+            encoded.extend(sub_bytes)
+        return encode_tlv(0x06, bytes(encoded))
+
+    varbinds_payload = b''
+    formatted_oids = []
+    for oid in oids:
+        clean_oid = oid.lstrip('.')
+        target_oid = clean_oid if clean_oid.endswith('.0') else clean_oid + '.0'
+        formatted_oids.append((oid, clean_oid, target_oid))
+        varbind = encode_tlv(0x30, encode_oid(target_oid) + encode_tlv(0x05, b''))
+        varbinds_payload += varbind
+
+    varbind_list = encode_tlv(0x30, varbinds_payload)
+    pdu = encode_tlv(0xA0, encode_integer(1) + encode_integer(0) + encode_integer(0) + varbind_list)
+    snmp_ver = 0 if int(version) == 1 else 1
+    snmp_msg = encode_tlv(0x30, encode_integer(snmp_ver) + encode_octet_string(community) + pdu)
+
+    results = {}
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(3.0)
+        sock.sendto(snmp_msg, (host, port))
+        resp_data, _ = sock.recvfrom(65535)
+        sock.close()
+
+        def decode_ber(data, pos=0):
+            if pos >= len(data):
+                return None, pos
+            tag = data[pos]
+            pos += 1
+            length = data[pos]
+            pos += 1
+            if length & 0x80:
+                num_bytes = length & 0x7f
+                length = 0
+                for _ in range(num_bytes):
+                    length = (length << 8) | data[pos]
+                    pos += 1
+            val_data = data[pos:pos + length]
+            pos += length
+            return (tag, val_data), pos
+
+        msg_tlv, _ = decode_ber(resp_data, 0)
+        if msg_tlv and msg_tlv[0] == 0x30:
+            pos = 0
+            _, pos = decode_ber(msg_tlv[1], pos)
+            _, pos = decode_ber(msg_tlv[1], pos)
+            pdu_tlv, pos = decode_ber(msg_tlv[1], pos)
+            if pdu_tlv and (pdu_tlv[0] & 0x1F) == 2:
+                pdu_pos = 0
+                _, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
+                _, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
+                _, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
+                vbl_tlv, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
+                if vbl_tlv and vbl_tlv[0] == 0x30:
+                    vb_pos = 0
+                    vb_index = 0
+                    while vb_pos < len(vbl_tlv[1]) and vb_index < len(formatted_oids):
+                        vb_item, vb_pos = decode_ber(vbl_tlv[1], vb_pos)
+                        if vb_item and vb_item[0] == 0x30:
+                            item_pos = 0
+                            _, item_pos = decode_ber(vb_item[1], item_pos)
+                            val_item, item_pos = decode_ber(vb_item[1], item_pos)
+                            orig_oid, clean_oid, target_oid = formatted_oids[vb_index]
+                            if val_item:
+                                tag, vdata = val_item
+                                if tag == 0x02:
+                                    val = int.from_bytes(vdata, byteorder='big', signed=True)
+                                elif tag == 0x04:
+                                    try:
+                                        val = vdata.decode('utf-8')
+                                    except Exception:
+                                        val = vdata.hex()
+                                elif tag in (0x41, 0x42, 0x43, 0x46):
+                                    val = int.from_bytes(vdata, byteorder='big', signed=False)
+                                else:
+                                    val = None
+                                if val is not None:
+                                    for k in {orig_oid, clean_oid, '.' + clean_oid, target_oid, '.' + target_oid}:
+                                        results[k] = val
+                        vb_index += 1
+    except Exception as err:
+        print(f"SNMP direct query error ({host}:{port}): {err}")
+    return results
+
+
+def poll_device_snmp_fallback(device):
+    """If MQTT has no cached reading yet, query the saved SNMP config directly."""
+    if not is_valid_device_name(device):
+        return None
+    filepath = os.path.join(CONFIG_DIR, f'{device}.conf')
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, 'r') as f:
+            config_data = toml.load(f)
+        snmp_list = config_data.get('inputs', {}).get('snmp', [])
+        if not snmp_list:
+            return None
+        snmp = snmp_list[0]
+        host_port = snmp['agents'][0].replace('udp://', '').split(':')
+        host = host_port[0]
+        port = int(host_port[1])
+        community = snmp.get('community', 'public')
+        version = int(snmp.get('version', 2))
+        fields = snmp.get('field', [])
+        oids = [fld['oid'] for fld in fields if 'oid' in fld]
+        oid_values = snmp_get_batch(host, port, community, oids, version=version)
+        if not oid_values:
+            return None
+        mapped_fields = {}
+        for fld in fields:
+            oid = fld.get('oid', '')
+            if oid in oid_values:
+                mapped_fields[fld['name']] = oid_values[oid]
+            elif oid.lstrip('.') in oid_values:
+                mapped_fields[fld['name']] = oid_values[oid.lstrip('.')]
+        if mapped_fields:
+            entry = {"fields": mapped_fields, "timestamp": time.time()}
+            with live_data_lock:
+                live_data[device] = entry
+            return entry
+    except Exception as err:
+        print(f"SNMP fallback poll error for {device}: {err}")
+    return None
+
+
 @app.route('/api/live/<device>', methods=['GET'])
 def get_live_data(device):
-    return jsonify(live_data.get(device, {'error': 'No data available'}))
+    with live_data_lock:
+        cached = live_data.get(device)
+    if cached and (time.time() - cached.get('timestamp', 0)) < 30:
+        return jsonify(cached)
+    fallback = poll_device_snmp_fallback(device)
+    if fallback:
+        return jsonify(fallback)
+    if cached:
+        return jsonify(cached)
+    return jsonify({'error': 'No data available'})
+
 
 @app.route('/api/export', methods=['POST'])
 def export_to_third_party():
@@ -762,9 +919,11 @@ def export_to_third_party():
     print("=" * 50)
     return jsonify({'message': 'Exported successfully', 'data': data})
 
+
 @app.route('/api/live_all')
 def live_all():
-    return jsonify(live_data)
+    with live_data_lock:
+        return jsonify(dict(live_data))
 
 
 @app.route('/upload_mib', methods=['POST'])
@@ -827,145 +986,6 @@ def delete_mib(filename):
         return jsonify({'error': str(e)}), 500
 
 
-def snmp_get_batch(host, port, community, oids):
-    """Pure Python SNMP v1/v2c GET request implementation over UDP socket."""
-    import socket
-    if not oids:
-        return {}
-    
-    def encode_tlv(tag, payload):
-        if len(payload) < 128:
-            length_bytes = bytes([len(payload)])
-        else:
-            lb = []
-            l = len(payload)
-            while l > 0:
-                lb.insert(0, l & 0xff)
-                l >>= 8
-            length_bytes = bytes([0x80 | len(lb)] + lb)
-        return bytes([tag]) + length_bytes + payload
-
-    def encode_integer(val):
-        if val == 0:
-            return encode_tlv(0x02, b'\x00')
-        b = []
-        neg = val < 0
-        if neg:
-            val = (1 << (val.bit_length() + 8)) + val
-        while val > 0:
-            b.insert(0, val & 0xff)
-            val >>= 8
-        if not neg and b[0] & 0x80:
-            b.insert(0, 0)
-        return encode_tlv(0x02, bytes(b))
-
-    def encode_octet_string(s):
-        if isinstance(s, str):
-            s = s.encode('utf-8')
-        return encode_tlv(0x04, s)
-
-    def encode_oid(oid_str):
-        parts = [int(p) for p in oid_str.strip('.').split('.')]
-        if len(parts) < 2:
-            return b''
-        first_byte = parts[0] * 40 + parts[1]
-        encoded = [first_byte]
-        for subid in parts[2:]:
-            sub_bytes = []
-            while subid > 0:
-                sub_bytes.insert(0, (subid & 0x7f) | (0x80 if sub_bytes else 0))
-                subid >>= 7
-            if not sub_bytes:
-                sub_bytes = [0]
-            encoded.extend(sub_bytes)
-        return encode_tlv(0x06, bytes(encoded))
-
-    # Build varbind list for OIDs (append .0 if not scalar/instance OID)
-    varbinds_payload = b''
-    formatted_oids = []
-    for oid in oids:
-        target_oid = oid if oid.endswith('.0') else oid + '.0'
-        formatted_oids.append((oid, target_oid))
-        varbind = encode_tlv(0x30, encode_oid(target_oid) + encode_tlv(0x05, b''))
-        varbinds_payload += varbind
-
-    varbind_list = encode_tlv(0x30, varbinds_payload)
-    # GetRequest PDU (0xA0), request-id=1, error-status=0, error-index=0
-    pdu = encode_tlv(0xA0, encode_integer(1) + encode_integer(0) + encode_integer(0) + varbind_list)
-    # SNMP v2c Message: version=1 (SNMPv2c), community, pdu
-    snmp_msg = encode_tlv(0x30, encode_integer(1) + encode_octet_string(community) + pdu)
-
-    results = {}
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(5.0)
-        sock.sendto(snmp_msg, (host, port))
-        resp_data, _ = sock.recvfrom(65535)
-        sock.close()
-
-        # Parse SNMP Response BER
-        def decode_ber(data, pos=0):
-            if pos >= len(data):
-                return None, pos
-            tag = data[pos]
-            pos += 1
-            length = data[pos]
-            pos += 1
-            if length & 0x80:
-                num_bytes = length & 0x7f
-                length = 0
-                for _ in range(num_bytes):
-                    length = (length << 8) | data[pos]
-                    pos += 1
-            val_data = data[pos:pos+length]
-            pos += length
-            return (tag, val_data), pos
-
-        msg_tlv, _ = decode_ber(resp_data, 0)
-        if msg_tlv and msg_tlv[0] == 0x30:
-            # Inside Message Sequence: version, community, PDU
-            pos = 0
-            ver_tlv, pos = decode_ber(msg_tlv[1], pos)
-            comm_tlv, pos = decode_ber(msg_tlv[1], pos)
-            pdu_tlv, pos = decode_ber(msg_tlv[1], pos)
-            if pdu_tlv and (pdu_tlv[0] & 0x1F) == 2:  # GetResponse PDU (0xA2)
-                pdu_pos = 0
-                req_id, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
-                err_stat, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
-                err_idx, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
-                vbl_tlv, pdu_pos = decode_ber(pdu_tlv[1], pdu_pos)
-                if vbl_tlv and vbl_tlv[0] == 0x30:
-                    vb_pos = 0
-                    vb_index = 0
-                    while vb_pos < len(vbl_tlv[1]) and vb_index < len(formatted_oids):
-                        vb_item, vb_pos = decode_ber(vbl_tlv[1], vb_pos)
-                        if vb_item and vb_item[0] == 0x30:
-                            item_pos = 0
-                            oid_item, item_pos = decode_ber(vb_item[1], item_pos)
-                            val_item, item_pos = decode_ber(vb_item[1], item_pos)
-                            orig_oid, target_oid = formatted_oids[vb_index]
-                            if val_item:
-                                tag, vdata = val_item
-                                if tag == 0x02:  # INTEGER
-                                    val = int.from_bytes(vdata, byteorder='big', signed=True)
-                                elif tag == 0x04:  # OCTET STRING
-                                    try:
-                                        val = vdata.decode('utf-8')
-                                    except:
-                                        val = vdata.hex()
-                                elif tag in (0x41, 0x42, 0x43, 0x46):  # Counter/Gauge/TimeTicks
-                                    val = int.from_bytes(vdata, byteorder='big', signed=False)
-                                else:
-                                    val = None
-                                if val is not None:
-                                    results[orig_oid] = val
-                                    results[target_oid] = val
-                        vb_index += 1
-    except Exception as err:
-        print(f"SNMP direct query error: {err}")
-    return results
-
-
 @app.route('/api/snmp_live_query', methods=['POST'])
 def snmp_live_query():
     try:
@@ -973,10 +993,11 @@ def snmp_live_query():
         host = data.get('host', '127.0.0.1')
         port = int(data.get('port', 161))
         community = data.get('community', 'public')
+        version = int(data.get('version', 2))
         oids = data.get('oids', [])
         if not oids:
             return jsonify({'values': {}})
-        results = snmp_get_batch(host, port, community, oids[:50])
+        results = snmp_get_batch(host, port, community, oids[:50], version=version)
         return jsonify({'values': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
