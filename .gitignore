@@ -15,8 +15,8 @@ frontend/dist/
 frontend/.env
 frontend/.env.local
 agents.md
-
-
+configs/*
+learnings.md
 # OS / editor
 .DS_Store
 *.swp
