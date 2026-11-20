@@ -1,0 +1,27 @@
+# Python
+/venv
+.venv
+backend/.venv/
+**/__pycache__/
+**/.pytest_cache/
+*.pyc
+.Python
+backend/*.sqlite3
+backend/*.sqlite3-*
+backend/smartrack-auth.sqlite3
+# Node / frontend (Stage 2+)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+image.png
+
+
