@@ -161,6 +161,45 @@ def install_license(doc: dict) -> None:
             temporary_path.unlink()
 
 
+def device_names() -> list:
+    """Return saved device config names, excluding temporary test configs."""
+    return [path.stem for path in Path(CONFIG_DIR).glob('*.conf')
+            if path.is_file() and not path.name.startswith('temp_test_')]
+
+
+def count_devices() -> int:
+    """Count configured Telegraf inputs, treating each config as at least one."""
+    total = 0
+    for name in device_names():
+        config_path = Path(CONFIG_DIR) / f'{name}.conf'
+        try:
+            inputs = toml.load(str(config_path)).get('inputs', {})
+            total += max(1, sum(len(value) if isinstance(value, list) else 1
+                                for value in inputs.values()))
+        except Exception:
+            total += 1
+    return total
+
+
+def get_max_devices() -> int:
+    """Return the active license's device limit, or zero if unlicensed."""
+    license_data = get_license()
+    return license_data['max_devices'] if license_data['valid'] else 0
+
+
+def can_add(name: str) -> tuple:
+    """Check a proposed config name and whether another device fits the license."""
+    if not NAME_RE.fullmatch(name or ''):
+        return False, 'Invalid device name.'
+    if name in device_names():
+        return True, ''
+    used = count_devices()
+    maximum = get_max_devices()
+    if used >= maximum:
+        return False, f'Device limit reached ({used}/{maximum}).'
+    return True, ''
+
+
 def is_valid_device_name(name: str) -> bool:
     return isinstance(name, str) and bool(re.fullmatch(r'[A-Za-z0-9_-]{1,40}', name))
 
@@ -1125,6 +1164,20 @@ def snmp_live_query():
         return jsonify({'values': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/license', methods=['GET'])
+def api_license():
+    license_data = get_license()
+    return jsonify({
+        'valid': license_data['valid'],
+        'reason': license_data.get('reason'),
+        'license_id': license_data.get('license_id'),
+        'type': license_data.get('license_type'),
+        'max': license_data.get('max_devices', 0),
+        'used': count_devices(),
+        'machine_id': machine_id(),
+    })
 
 
 if __name__ == '__main__':
