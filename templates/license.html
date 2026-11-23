@@ -70,7 +70,7 @@
                 const result = await readJson(response);
                 if (!response.ok) throw new Error(result.error || 'License installation failed.');
                 state.textContent = result.message;
-                details.textContent = `License ${result.license.license_id || ''} · up to ${result.license.max_devices} devices. Opening dashboard…`;
+                details.textContent = `License ${result.license.license_id || ''} · up to ${result.license.max_devices} devices. Saved to ${result.saved_to}. Opening dashboard…`;
                 details.classList.remove('hidden');
                 window.setTimeout(() => window.location.replace('/dashboard'), 900);
             } catch (error) {
