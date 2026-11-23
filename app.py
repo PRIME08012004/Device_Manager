@@ -12,6 +12,15 @@ import socket
 import paho.mqtt.client as mqtt
 import threading
 import time
+import base64
+import platform
+import tempfile
+from pathlib import Path
+from contextlib import contextmanager
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.exceptions import InvalidSignature
 
 app = Flask(__name__)
 
@@ -35,6 +44,113 @@ MODBUS_CONFIG = os.path.join(os.path.dirname(__file__), 'modbus_config.json')
 MIB_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'mibs')
 if not os.path.exists(MIB_UPLOAD_DIR):
     os.makedirs(MIB_UPLOAD_DIR)
+
+
+# ===== LICENSING =====
+PRODUCT = 'NEU159'
+LICENSE_PATH = os.environ.get('NEU_LICENSE_PATH', '/etc/neu/license.json')
+USB_DIR_NAME = 'NEU159_USB'
+MOUNT_POINT = '/mnt/neu159_usb'
+MAX_LICENSE_BYTES = 100_000
+NAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,40}$')
+PUBLIC_KEY_PEM = '''-----BEGIN PUBLIC KEY-----
+PASTE_ISSUER_PUBLIC_KEY_HERE
+-----END PUBLIC KEY-----'''
+
+
+def machine_id() -> str:
+    """Read the host ID used to bind a license to this controller."""
+    for path in ('/etc/machine-id', '/var/lib/dbus/machine-id'):
+        try:
+            return Path(path).read_text(encoding='utf-8').rstrip('\r\n')
+        except OSError:
+            continue
+    return ''
+
+
+def verify_doc(doc: dict) -> dict:
+    """Verify the signed license document and its controller-specific claims."""
+    if 'PASTE_ISSUER_PUBLIC_KEY_HERE' in PUBLIC_KEY_PEM:
+        raise ValueError('Issuer public key is still the placeholder in app.py.')
+    if not isinstance(doc, dict) or not isinstance(doc.get('license'), dict):
+        raise ValueError('License document must contain a license object.')
+    license_data = doc['license']
+    signature = doc.get('signature')
+    if not isinstance(signature, str):
+        raise ValueError('License signature is missing.')
+    try:
+        public_key = serialization.load_pem_public_key(PUBLIC_KEY_PEM.encode('ascii'))
+        if getattr(public_key, 'key_size', None) != 3072:
+            raise ValueError('Issuer public key must be RSA-3072.')
+        payload = json.dumps(license_data, sort_keys=True, separators=(',', ':')).encode('utf-8')
+        public_key.verify(
+            base64.b64decode(signature, validate=True),
+            payload,
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+    except InvalidSignature as exc:
+        raise ValueError('License signature is invalid.') from exc
+    except (TypeError, ValueError) as exc:
+        if isinstance(exc, ValueError):
+            raise
+        raise ValueError('License signature or public key is malformed.') from exc
+    except Exception as exc:
+        raise ValueError(f'Unable to verify license: {exc}') from exc
+
+    if license_data.get('product') != PRODUCT:
+        raise ValueError(f'License product must be {PRODUCT}.')
+    host_id = machine_id()
+    if not host_id or license_data.get('machine_id') != host_id:
+        raise ValueError('License is for a different machine.')
+    max_devices = license_data.get('max_devices')
+    if isinstance(max_devices, bool) or not isinstance(max_devices, int) or max_devices < 0:
+        raise ValueError('License max_devices must be a non-negative integer.')
+    expires_at = license_data.get('expires_at')
+    if expires_at:
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=pytz.UTC)
+            if datetime.now(pytz.UTC) >= expiry.astimezone(pytz.UTC):
+                raise ValueError('License has expired.')
+        except (AttributeError, TypeError) as exc:
+            raise ValueError('License expiry must be an ISO-8601 timestamp.') from exc
+        except ValueError as exc:
+            if str(exc) == 'License has expired.':
+                raise
+            raise ValueError('License expiry must be an ISO-8601 timestamp.') from exc
+    return license_data
+
+
+def get_license() -> dict:
+    """Read and verify the installed license without raising errors."""
+    try:
+        license_file = Path(LICENSE_PATH)
+        if license_file.stat().st_size > MAX_LICENSE_BYTES:
+            raise ValueError('Installed license exceeds the size limit.')
+        return {'valid': True, **verify_doc(json.loads(license_file.read_text(encoding='utf-8')))}
+    except Exception as exc:
+        return {'valid': False, 'reason': str(exc), 'max_devices': 0}
+
+
+def install_license(doc: dict) -> None:
+    """Verify and atomically install a license at LICENSE_PATH."""
+    verify_doc(doc)
+    license_path = Path(LICENSE_PATH)
+    license_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', dir=license_path.parent,
+                                         prefix=f'.{license_path.name}.', delete=False) as temp_file:
+            temporary_path = Path(temp_file.name)
+            json.dump(doc, temp_file, separators=(',', ':'))
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temporary_path, license_path)
+    finally:
+        if temporary_path and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def is_valid_device_name(name: str) -> bool:
