@@ -27,7 +27,6 @@ app = Flask(__name__)
 IST = pytz.timezone('Asia/Kolkata')
 CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'configs')
 SYSTEMD_DIR = '/etc/systemd/system'
-MAX_CONFIGS = 5
 add_lock = threading.Lock()
 
 # Optional MQTT broker credentials (leave empty if Mosquitto allows anonymous local connections)
@@ -48,7 +47,10 @@ if not os.path.exists(MIB_UPLOAD_DIR):
 
 # ===== LICENSING =====
 PRODUCT = 'NEU159'
-LICENSE_PATH = os.environ.get('NEU_LICENSE_PATH', '/etc/neu/license.json')
+LICENSE_PATH = os.environ.get(
+    'NEU_LICENSE_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'license.json'),
+)
 USB_DIR_NAME = 'NEU159_USB'
 MOUNT_POINT = '/mnt/neu159_usb'
 MAX_LICENSE_BYTES = 100_000
@@ -200,6 +202,160 @@ def can_add(name: str) -> tuple:
     return True, ''
 
 
+class USBStatusError(Exception):
+    def __init__(self, state: str, message: str):
+        super().__init__(message)
+        self.state = state
+
+
+def _lsblk_devices() -> list:
+    result = subprocess.run(
+        ['lsblk', '-J', '-o', 'PATH,RM,HOTPLUG,TYPE,FSTYPE,MOUNTPOINT,TRAN'],
+        capture_output=True, text=True, timeout=10
+    )
+    if result.returncode:
+        raise USBStatusError('mount_failed', result.stderr.strip() or 'lsblk could not inspect storage devices.')
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise USBStatusError('mount_failed', 'lsblk returned invalid device information.') from exc
+
+    devices = []
+
+    def truthy(value):
+        return value is True or str(value).lower() in ('1', 'true', 'yes')
+
+    def visit(node, parent_removable=False, parent_transport=''):
+        transport = str(node.get('tran') or parent_transport).lower()
+        removable = (parent_removable or truthy(node.get('rm')) or
+                     truthy(node.get('hotplug')) or transport == 'usb')
+        device_type = node.get('type')
+        filesystem = node.get('fstype')
+        device_path = node.get('path')
+        if removable and device_type in ('part', 'disk') and filesystem and device_path:
+            mountpoints = node.get('mountpoints') or node.get('mountpoint') or []
+            if isinstance(mountpoints, str):
+                mountpoints = [mountpoints]
+            devices.append({
+                'path': device_path,
+                'type': device_type,
+                'mountpoints': [mount for mount in mountpoints if mount],
+            })
+        for child in node.get('children') or []:
+            visit(child, removable, transport)
+
+    for device in data.get('blockdevices') or []:
+        visit(device)
+    devices.sort(key=lambda item: (item['type'] != 'part', item['path']))
+    return devices
+
+
+def _neu_usb_folder(mountpoint: str):
+    if not mountpoint or os.path.islink(mountpoint) or not os.path.isdir(mountpoint):
+        return None
+    try:
+        with os.scandir(mountpoint) as entries:
+            for entry in entries:
+                if entry.name.casefold() == USB_DIR_NAME.casefold() and entry.is_dir(follow_symlinks=False):
+                    return entry.path
+    except OSError:
+        return None
+    return None
+
+
+@contextmanager
+def usb_license_folder(writable: bool = False):
+    """Find NEU159_USB on removable storage and temporarily mount if required."""
+    try:
+        devices = _lsblk_devices()
+    except FileNotFoundError as exc:
+        raise USBStatusError('mount_failed', 'lsblk is unavailable on this controller.') from exc
+    if not devices:
+        raise USBStatusError('no_device', 'No removable USB storage with a filesystem was found.')
+
+    saw_mounted_device = False
+    mount_errors = []
+    for device in devices:
+        for mountpoint in device['mountpoints']:
+            saw_mounted_device = True
+            folder = _neu_usb_folder(mountpoint)
+            if folder:
+                yield folder
+                return
+
+    for device in devices:
+        if device['mountpoints']:
+            continue
+        if os.path.ismount(MOUNT_POINT):
+            mount_errors.append(f'{MOUNT_POINT} is already in use.')
+            continue
+        os.makedirs(MOUNT_POINT, exist_ok=True)
+        options = 'rw,nosuid,nodev,noexec' if writable else 'ro,nosuid,nodev,noexec'
+        mounted = subprocess.run(
+            ['mount', '-o', options, device['path'], MOUNT_POINT],
+            capture_output=True, text=True, timeout=15
+        )
+        if mounted.returncode:
+            mount_errors.append(mounted.stderr.strip() or f"Could not mount {device['path']}.")
+            continue
+        saw_mounted_device = True
+        try:
+            folder = _neu_usb_folder(MOUNT_POINT)
+            if folder:
+                yield folder
+                return
+        finally:
+            if writable:
+                subprocess.run(['sync'], capture_output=True, text=True, timeout=10)
+            subprocess.run(['umount', MOUNT_POINT], capture_output=True, text=True, timeout=15)
+
+    if mount_errors:
+        raise USBStatusError('mount_failed', '; '.join(mount_errors))
+    if saw_mounted_device:
+        raise USBStatusError('no_folder', f'No {USB_DIR_NAME} folder was found at a removable drive root.')
+    raise USBStatusError('no_device', 'No mounted or mountable removable USB storage was found.')
+
+
+def _license_arch() -> str:
+    machine = platform.machine().lower()
+    return {'x86_64': 'amd64', 'amd64': 'amd64',
+            'aarch64': 'arm64', 'arm64': 'arm64',
+            'armv7l': 'armhf'}.get(machine, machine)
+
+
+def _read_usb_license(folder: str) -> dict:
+    licenses_dir = os.path.join(folder, 'licenses')
+    if os.path.islink(licenses_dir) or not os.path.isdir(licenses_dir):
+        raise USBStatusError('no_license', 'The USB has no valid licenses folder.')
+    arch = _license_arch()
+    arch_path = os.path.join(licenses_dir, arch)
+    candidates = []
+    controller_id = machine_id()
+    if os.path.isfile(arch_path):
+        candidates.append(arch_path)
+    elif os.path.isdir(arch_path) and not os.path.islink(arch_path):
+        if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', controller_id):
+            candidates.append(os.path.join(arch_path, f'{controller_id}.json'))
+        candidates.append(os.path.join(arch_path, 'license.json'))
+    candidates.append(os.path.join(licenses_dir, f'{arch}.json'))
+
+    for candidate in candidates:
+        if os.path.islink(candidate) or not os.path.isfile(candidate):
+            continue
+        try:
+            if os.path.getsize(candidate) > MAX_LICENSE_BYTES:
+                raise USBStatusError('no_license', 'The USB license file exceeds the allowed size.')
+            with open(candidate, 'r', encoding='utf-8') as license_file:
+                document = json.load(license_file)
+            verify_doc(document)
+            return document
+        except USBStatusError:
+            raise
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise USBStatusError('no_license', f'USB license was rejected: {exc}') from exc
+    raise USBStatusError('no_license', f'No license for {_license_arch()} and this controller was found on the USB.')
+
+
 def is_valid_device_name(name: str) -> bool:
     return isinstance(name, str) and bool(re.fullmatch(r'[A-Za-z0-9_-]{1,40}', name))
 
@@ -217,9 +373,11 @@ def count_saved_configs() -> int:
 
 
 def config_limit_error(used: int):
+    maximum = get_max_devices()
     return jsonify({
         'error': 'license_limit',
-        'message': f'Configuration limit exceeded. This controller supports up to {MAX_CONFIGS} saved config files; {used} are already saved.'
+        'code': 'device_limit',
+        'message': f'Device limit reached ({used}/{maximum}).'
     }), 403
 
 
@@ -593,11 +751,10 @@ def save_config(name):
         conf_str = generate_telegraf_conf(data)
         filepath = os.path.join(CONFIG_DIR, f'{name}.conf')
         with add_lock:
+            allowed, message = can_add(name)
+            if not allowed:
+                return jsonify({'error': 'license_limit', 'code': 'device_limit', 'message': message}), 403
             is_existing = os.path.exists(filepath)
-            if not is_existing:
-                used = count_saved_configs()
-                if used + 1 > MAX_CONFIGS:
-                    return config_limit_error(used)
             warning = 'Configuration file already exists and has been overwritten' if is_existing else None
             with open(filepath, 'w') as f:
                 f.write(conf_str)
@@ -647,8 +804,9 @@ def start_service(name):
         if not os.path.exists(filepath):
             return jsonify({'error': 'Configuration file not found'}), 404
         with add_lock:
-            used = count_saved_configs()
-            if used > MAX_CONFIGS:
+            used = count_devices()
+            maximum = get_max_devices()
+            if not get_license()['valid'] or used > maximum:
                 return config_limit_error(used)
             create_systemd_service(name)
             subprocess.run(['systemctl', 'restart', service_name], check=True)
@@ -784,11 +942,11 @@ def duplicate_config(name):
                 return jsonify({'error': f'Original config {name} not found'}), 404
             if os.path.exists(new_path):
                 return jsonify({'error': f'Configuration {new_name} already exists'}), 400
-            used = count_saved_configs()
+            allowed, message = can_add(new_name)
+            if not allowed:
+                return jsonify({'error': 'license_limit', 'code': 'device_limit', 'message': message}), 403
             with open(original_path, 'r') as f:
                 content = f.read()
-            if used + 1 > MAX_CONFIGS:
-                return config_limit_error(used)
             with open(new_path, 'w') as f:
                 f.write(content)
             create_systemd_service(new_name)
@@ -1178,6 +1336,68 @@ def api_license():
         'used': count_devices(),
         'machine_id': machine_id(),
     })
+
+
+@app.route('/api/usb/status', methods=['GET'])
+def api_usb_status():
+    try:
+        with usb_license_folder() as folder:
+            document = _read_usb_license(folder)
+        return jsonify({
+            'state': 'ready',
+            'message': f"Valid license {document['license'].get('license_id', '')} found on USB.",
+        })
+    except USBStatusError as exc:
+        return jsonify({'state': exc.state, 'message': str(exc)})
+    except Exception as exc:
+        app.logger.exception('USB license status check failed')
+        return jsonify({'state': 'mount_failed', 'message': str(exc)}), 500
+
+
+@app.route('/api/usb/install_license', methods=['POST'])
+def api_usb_install_license():
+    try:
+        with usb_license_folder() as folder:
+            document = _read_usb_license(folder)
+        install_license(document)
+        license_data = get_license()
+        if not license_data['valid']:
+            return jsonify({'error': license_data['reason']}), 500
+        return jsonify({
+            'message': 'License installed successfully. The USB can now be removed.',
+            'license': {
+                'license_id': license_data.get('license_id'),
+                'license_type': license_data.get('license_type'),
+                'max_devices': license_data['max_devices'],
+            },
+        })
+    except USBStatusError as exc:
+        return jsonify({'error': str(exc), 'state': exc.state}), 400
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except Exception as exc:
+        app.logger.exception('USB license installation failed')
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.before_request
+def require_license_for_application():
+    allowed_endpoints = {'static', 'api_license', 'api_usb_status', 'api_usb_install_license'}
+    if request.endpoint in allowed_endpoints:
+        return None
+    if get_license()['valid']:
+        return None
+    if request.path.startswith('/api/'):
+        return jsonify({
+            'error': 'license_required',
+            'message': 'Activate a valid NEU159 license to use this feature.',
+        }), 402
+    if request.method == 'GET':
+        return render_template('license.html')
+    return jsonify({
+        'error': 'license_required',
+        'message': 'Activate a valid NEU159 license to use this feature.',
+    }), 402
 
 
 if __name__ == '__main__':

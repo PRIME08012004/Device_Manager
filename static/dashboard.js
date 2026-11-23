@@ -1,3 +1,14 @@
+// This status request is visible in DevTools and confirms the cached license
+// that the server checked before rendering the dashboard.
+fetch('/api/license', { cache: 'no-store' })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.valid) window.location.replace('/');
+    })
+    .catch(error => {
+        console.error('License status request failed:', error);
+    });
+
 function loadDashboardStats() {
     const total = document.getElementById('totalDevices');
     const active = document.getElementById('activeDevices');

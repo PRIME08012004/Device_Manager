@@ -20,44 +20,62 @@
         <button id="retry" type="button" class="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60">
             Check USB license
         </button>
-        <p class="mt-4 text-xs text-slate-500">License folder: <code id="usbPath">checking…</code></p>
+        <p class="mt-4 text-xs text-slate-500">USB detection runs on the controller. Open DevTools → Network to see the license API requests.</p>
     </main>
     <script>
         const state = document.getElementById('state');
         const retry = document.getElementById('retry');
         const details = document.getElementById('licenseDetails');
-        const usbPath = document.getElementById('usbPath');
+        let retryTimer = null;
+
+        async function readJson(response) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error(`Server returned ${response.status} ${response.statusText} instead of JSON.`);
+            }
+            return response.json();
+        }
+
+        function retrySoon() {
+            retry.disabled = false;
+            retryTimer = window.setTimeout(checkLicense, 5000);
+        }
 
         async function checkLicense() {
+            window.clearTimeout(retryTimer);
             retry.disabled = true;
             details.classList.add('hidden');
-            state.textContent = 'Looking for and validating a license on the USB…';
+            state.textContent = 'Checking this controller and looking for the USB license…';
             try {
-                const statusResponse = await fetch('/api/license/status');
-                const status = await statusResponse.json();
-                usbPath.textContent = status.usb_available
-                    ? status.usb_path
-                    : `${status.usb_path} (not found; checked ${status.checked_paths.join(', ')})`;
-                if (status.active) {
+                const licenseResponse = await fetch('/api/license', { cache: 'no-store' });
+                const license = await readJson(licenseResponse);
+                if (license.valid) {
                     window.location.replace('/dashboard');
                     return;
                 }
-                const response = await fetch('/api/license/activate', { method: 'POST' });
-                const result = await response.json();
-                if (!response.ok) {
-                    const message = result.details?.length
-                        ? `${result.message} ${result.details.join(' ')}`
-                        : result.message;
-                    throw new Error(message || 'License activation failed.');
+
+                const statusResponse = await fetch('/api/usb/status', { cache: 'no-store' });
+                const usbStatus = await readJson(statusResponse);
+                state.textContent = usbStatus.message;
+                if (usbStatus.state !== 'ready') {
+                    retrySoon();
+                    return;
                 }
+
+                const response = await fetch('/api/usb/install_license', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
+                const result = await readJson(response);
+                if (!response.ok) throw new Error(result.error || 'License installation failed.');
                 state.textContent = result.message;
                 details.textContent = `License ${result.license.license_id || ''} · up to ${result.license.max_devices} devices. Opening dashboard…`;
                 details.classList.remove('hidden');
                 window.setTimeout(() => window.location.replace('/dashboard'), 900);
             } catch (error) {
                 state.textContent = error.message || 'Could not check the USB license.';
-                retry.disabled = false;
-                window.setTimeout(checkLicense, 5000);
+                retrySoon();
             }
         }
         retry.addEventListener('click', checkLicense);
