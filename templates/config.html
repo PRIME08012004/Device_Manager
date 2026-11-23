@@ -1274,8 +1274,8 @@
 
             <!-- Tab Bar -->
             <div class="tab-bar">
-                <div class="tab-item active" data-tab="overview">📊 Overview</div>
-                <div class="tab-item" data-tab="config">⚙️Add/Edit Configuration</div>
+                <div class="tab-item" data-tab="overview">📊 Overview</div>
+                <div class="tab-item active" data-tab="config">⚙️Add/Edit Configuration</div>
                 <div class="tab-item" data-tab="registers">📋 Fields</div>
                 <div class="tab-item" data-tab="tags">🏷️ Tags</div>
                 <div class="tab-item" data-tab="integrations">🔗 Integrations</div>
@@ -1286,7 +1286,7 @@
             <div class="tab-panels">
 
                 <!-- ── OVERVIEW TAB ── -->
-                <div class="tab-panel active" id="tab-overview">
+                <div class="tab-panel " id="tab-overview">
                     <div class="overview-grid">
                         <div class="card">
                             <div class="card-title">Device Information</div>
@@ -1376,7 +1376,7 @@
 
                     <div id="modbusSection" style="display:none;">
                         <div class="modbus-card">
-                            <div class="modbus-title">Enable Modbus?</div>
+                            <div class="modbus-title">Enable Server</div>
                             <div class="modbus-btn-row">
                                 <button id="modbusYesBtn" class="btn-yes">Yes</button>
                                 <button id="modbusNoBtn" class="btn-no">No</button>
@@ -1407,7 +1407,7 @@
                 </div>
 
                 <!-- ── CONFIGURATION TAB ── -->
-                <div class="tab-panel" id="tab-config">
+                <div class="tab-panel active" id="tab-config">
                     <form id="configForm">
                         <input type="hidden" id="editingConfigName" value="">
                         <input type="hidden" id="editingRegisterIndex" value="-1">
