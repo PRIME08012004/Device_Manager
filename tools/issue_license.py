@@ -3,6 +3,7 @@
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import tempfile
@@ -88,9 +89,15 @@ def main() -> int:
         private_key.public_key().verify(
             signature_bytes, payload, padding.PKCS1v15(), hashes.SHA256()
         )
+        public_der = private_key.public_key().public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
         document = {'license': license_data, 'signature': signature}
         atomic_write_json(args.out, document)
         print(f'Wrote signed NEU159 license to {args.out}')
+        print(f'Canonical payload SHA-256: {hashlib.sha256(payload).hexdigest()}')
+        print(f'Issuer public key SHA-256: {hashlib.sha256(public_der).hexdigest()}')
         return 0
     except SystemExit:
         raise
