@@ -345,13 +345,75 @@ startLiveDataPolling();
         }).catch(err => { testOutput.textContent = `❌ Error deleting ${name}: ${err.message}`; });
     }
 
-    window.testConfig = function(name) {
-        axios.get(`/test_config/${name}`).then(res => {
-            testOutput.textContent = `✅ Test ${res.data.status}: ${res.data.output}`;
-        }).catch(err => {
-            testOutput.textContent = `❌ Test failed: ${err.message}`;
-        });
+    function analyzeTestOutput(output) {
+        const issues = [];
+        const text = output || '';
+
+        // Device disconnected / unreachable
+        if (/connection refused|no route to host|network is unreachable|i\/o timeout|timed out|request timeout|no response|exception '?11'?|gateway target device/i.test(text)) {
+            issues.push('🔌 Device disconnected or not responding (check host, port, slave ID, cable/network)');
+        }
+        // Modbus register errors
+        if (/illegal data address|exception '?2'?/i.test(text)) {
+            issues.push('📋 Register error: illegal data address (wrong address or register type, e.g. input vs holding)');
+        }
+        if (/illegal data value|exception '?3'?/i.test(text)) {
+            issues.push('📋 Register error: illegal data value (check data type / address count)');
+        }
+        if (/slave device failure|exception '?4'?/i.test(text)) {
+            issues.push('⚠️ Device reported an internal failure (slave device failure)');
+        }
+        if (/illegal function|exception '?1'?/i.test(text)) {
+            issues.push('📋 Register error: illegal function (device does not support this register type)');
+        }
+        // SNMP
+        if (/authentication failure|unknown user name|wrong digest|unsupported security level/i.test(text)) {
+            issues.push('🔐 SNMP authentication error (check community / SNMPv3 credentials)');
+        }
+        if (/no such object|no such instance|nosuchname/i.test(text)) {
+            issues.push('📋 SNMP error: OID not found on device');
+        }
+        // Any other Telegraf error lines
+        const errLines = text.split('\n').filter(l => /\bE!|\bError\b|panic|fatal/i.test(l));
+        if (errLines.length && issues.length === 0) {
+            issues.push('❌ Errors reported:\n   ' + errLines.slice(0, 5).join('\n   '));
+        }
+        // Empty output = nothing was collected
+        if (!text.trim()) {
+            issues.push('⚠️ No output received from device');
+        }
+        return issues;
     }
+
+    window.testConfig = function (name) {
+        testOutput.textContent = `⏳ Testing ${name}...`;
+        testOutput.style.color = '';
+
+        axios.get(`/test_config/${name}`, { validateStatus: () => true })
+            .then(res => {
+                const data = res.data || {};
+                const output = typeof data === 'string'
+                    ? data
+                    : (data.output || data.error || data.message || '');
+                const failedStatus = res.status >= 400 || /error|fail/i.test(String(data.status || ''));
+                const issues = analyzeTestOutput(output);
+
+                if (failedStatus || issues.length > 0) {
+                    testOutput.style.color = '#ef4444';
+                    testOutput.textContent =
+                        `❌ Test FAILED for ${name}\n\n` +
+                        (issues.length ? issues.join('\n') + '\n\n' : '') +
+                        `--- Raw output ---\n${output || '(empty)'}`;
+                } else {
+                    testOutput.style.color = '#16a34a';
+                    testOutput.textContent = `✅ Test passed for ${name}\n\n${output}`;
+                }
+            })
+            .catch(err => {
+                testOutput.style.color = '#ef4444';
+                testOutput.textContent = `❌ Could not reach the server: ${err.message}`;
+            });
+    };
 
     function downloadConfig(name) {
         window.location.href = `/download/${name}`;
