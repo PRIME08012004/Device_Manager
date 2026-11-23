@@ -56,9 +56,9 @@ LICENSE_PATH = os.environ.get(
 # A valid installed USB license is required before application features are served.
 LICENSE_ENFORCEMENT_ENABLED = True
 USB_DIR_NAME = 'NEU159_USB'
-MOUNT_POINT = '/mnt/neu159_usb'
 MAX_LICENSE_BYTES = 100_000
 NAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,40}$')
+_USB_SCAN_LOCK = threading.Lock()
 # The previous public key was retired because its private counterpart was exposed.
 PUBLIC_KEY_PEM = '''-----BEGIN PUBLIC KEY-----
 MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA8LigMfrW/2uGR1H42dWv
@@ -297,7 +297,7 @@ def _neu_usb_folder(mountpoint: str):
 
 
 @contextmanager
-def usb_license_folder(writable: bool = False):
+def _usb_license_folder(writable: bool = False):
     """Find NEU159_USB on removable storage and temporarily mount if required."""
     try:
         devices = _lsblk_devices()
@@ -319,34 +319,46 @@ def usb_license_folder(writable: bool = False):
     for device in devices:
         if device['mountpoints']:
             continue
-        if os.path.ismount(MOUNT_POINT):
-            mount_errors.append(f'{MOUNT_POINT} is already in use.')
-            continue
-        os.makedirs(MOUNT_POINT, exist_ok=True)
-        options = 'rw,nosuid,nodev,noexec' if writable else 'ro,nosuid,nodev,noexec'
-        mounted = subprocess.run(
-            ['mount', '-o', options, device['path'], MOUNT_POINT],
-            capture_output=True, text=True, timeout=15
-        )
-        if mounted.returncode:
-            mount_errors.append(mounted.stderr.strip() or f"Could not mount {device['path']}.")
-            continue
-        saw_mounted_device = True
+        mountpoint = tempfile.mkdtemp(prefix='neu159-usb-')
+        mounted_ok = False
         try:
-            folder = _neu_usb_folder(MOUNT_POINT)
+            options = 'rw,nosuid,nodev,noexec' if writable else 'ro,nosuid,nodev,noexec'
+            mounted = subprocess.run(
+                ['mount', '-o', options, device['path'], mountpoint],
+                capture_output=True, text=True, timeout=15
+            )
+            if mounted.returncode:
+                mount_errors.append(mounted.stderr.strip() or f"Could not mount {device['path']}.")
+                continue
+            mounted_ok = True
+            saw_mounted_device = True
+            folder = _neu_usb_folder(mountpoint)
             if folder:
                 yield folder
                 return
         finally:
-            if writable:
-                subprocess.run(['sync'], capture_output=True, text=True, timeout=10)
-            subprocess.run(['umount', MOUNT_POINT], capture_output=True, text=True, timeout=15)
+            if mounted_ok:
+                if writable:
+                    subprocess.run(['sync'], capture_output=True, text=True, timeout=10)
+                subprocess.run(['umount', mountpoint], capture_output=True, text=True, timeout=15)
+            try:
+                os.rmdir(mountpoint)
+            except OSError:
+                pass
 
     if mount_errors:
         raise USBStatusError('mount_failed', '; '.join(mount_errors))
     if saw_mounted_device:
         raise USBStatusError('no_folder', f'No {USB_DIR_NAME} folder was found at a removable drive root.')
     raise USBStatusError('no_device', 'No mounted or mountable removable USB storage was found.')
+
+
+@contextmanager
+def usb_license_folder(writable: bool = False):
+    """Serialize USB scans and mount each unmounted device at a private path."""
+    with _USB_SCAN_LOCK:
+        with _usb_license_folder(writable=writable) as folder:
+            yield folder
 
 
 def _license_arch() -> str:
