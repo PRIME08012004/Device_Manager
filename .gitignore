@@ -1,7 +1,8 @@
 # Python
-/venv
+venv
 .venv
 backend/.venv/
+configs
 **/__pycache__/
 **/.pytest_cache/
 *.pyc
@@ -23,5 +24,6 @@ learnings.md
 .idea/
 .vscode/
 image.png
+license.json
 
 
