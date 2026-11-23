@@ -25,5 +25,7 @@ learnings.md
 .vscode/
 image.png
 license.json
+*.pem
+*.key
 
 

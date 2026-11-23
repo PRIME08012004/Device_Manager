@@ -13,13 +13,14 @@ import paho.mqtt.client as mqtt
 import threading
 import time
 import base64
+import binascii
 import platform
 import tempfile
 from pathlib import Path
 from contextlib import contextmanager
 
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.exceptions import InvalidSignature
 
 app = Flask(__name__)
@@ -51,21 +52,15 @@ LICENSE_PATH = os.environ.get(
     'NEU_LICENSE_PATH',
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'license.json'),
 )
+# Temporary rollout switch: set NEU_LICENSE_REQUIRED=true to enable gating/limits.
+LICENSE_ENFORCEMENT_ENABLED = os.environ.get('NEU_LICENSE_REQUIRED', 'false').lower() in ('1', 'true', 'yes')
 USB_DIR_NAME = 'NEU159_USB'
 MOUNT_POINT = '/mnt/neu159_usb'
 MAX_LICENSE_BYTES = 100_000
 NAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,40}$')
-PUBLIC_KEY_PEM = '''-----BEGIN PUBLIC KEY-----
-MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAmnMeLZmt3V7lKQApm8BM
-Uixyya85Noby37xVgj1KTVLVYsJ6uKn4lXhLGwIxVliA1Ukp7OVGB4CuvaUdnC2/
-Wky7izWeLIk/y1J4k8Cie2NwV4ERM1X737KL1HISplRNVFisyfeJ8rOjfTXW70FF
-zM5ZFAP9ZhYQPR78gc9y8I3kxmfR3nZysCIJeCVFZ9dcl31ZRTNNey8+9aOPOcnn
-HodWjpDw0EY6Cfy8xtHrwyH3VaBYLIY+aHVjSWFAewzWU7UjvveZx3rYNSkw/2Qu
-BHB8QqJ3hPXmN9GZc4P2OulamMisdm5w+3PWzJU9b/2sBvc0U6Wf0AsZ+RVHdMjC
-TyatG8mPg/Ka32BWkhVfUQkCcrFrj48DR7YUtV89j69KyAzMXcFJGbKHl+k/KRIx
-SlZsZbCWYaN7HyiZFzRHaJZ6s80UTXHZwEUu82zX/t2XC7Hy+/JihEcLyXSda99T
-A8VuQBG61ilHLK1h/LoK79PAQUgynCHsMgIwcPaBZD+RAgMBAAE=
------END PUBLIC KEY-----'''
+# The previous public key is retired because its private counterpart was exposed.
+# Replace this placeholder with the newly rotated issuer public key before activation.
+PUBLIC_KEY_PEM = 'REPLACE_WITH_ROTATED_RSA_3072_PUBLIC_KEY'
 
 
 def machine_id() -> str:
@@ -78,29 +73,51 @@ def machine_id() -> str:
     return ''
 
 
+def machine_id_enforcement_enabled() -> bool:
+    """Read machine-ID enforcement at verification time for deployments/tests."""
+    return os.environ.get('NEU_ENFORCE_MACHINE_ID', 'false').lower() in ('1', 'true', 'yes')
+
+
 def verify_doc(doc: dict) -> dict:
     """Verify the signed license document and its controller-specific claims."""
-    if 'PASTE_ISSUER_PUBLIC_KEY_HERE' in PUBLIC_KEY_PEM:
-        raise ValueError('Issuer public key is still the placeholder in app.py.')
-    if not isinstance(doc, dict) or not isinstance(doc.get('license'), dict):
-        raise ValueError('License document must contain a license object.')
+    if 'REPLACE_WITH_ROTATED_RSA_3072_PUBLIC_KEY' in PUBLIC_KEY_PEM:
+        raise ValueError('Issuer public key has been retired; install the rotated public key in app.py.')
+    if not isinstance(doc, dict):
+        raise ValueError('License document must be a JSON object.')
+    missing = {'license', 'signature'} - set(doc)
+    if missing:
+        missing_key = sorted(missing)[0]
+        raise ValueError(f'License document is missing the {missing_key!r} key.')
+    extra = set(doc) - {'license', 'signature'}
+    if extra:
+        raise ValueError(f'License document has unexpected top-level key(s): {", ".join(sorted(extra))}.')
+    if not isinstance(doc['license'], dict):
+        raise ValueError('License "license" value must be an object.')
     license_data = doc['license']
     signature = doc.get('signature')
     if not isinstance(signature, str):
-        raise ValueError('License signature is missing.')
+        raise ValueError('License "signature" value must be a base64 string.')
+    if 'PRIVATE KEY' in signature or '-----BEGIN' in signature:
+        raise ValueError('The signature field contains a PEM private key, not a license signature.')
     try:
         public_key = serialization.load_pem_public_key(PUBLIC_KEY_PEM.encode('ascii'))
-        if getattr(public_key, 'key_size', None) != 3072:
+        if not isinstance(public_key, rsa.RSAPublicKey) or public_key.key_size != 3072:
             raise ValueError('Issuer public key must be RSA-3072.')
         payload = json.dumps(license_data, sort_keys=True, separators=(',', ':')).encode('utf-8')
+        try:
+            signature_bytes = base64.b64decode(signature, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError('License signature is not valid base64.') from exc
+        if len(signature_bytes) != public_key.key_size // 8:
+            raise ValueError('License signature has the wrong length for the issuer key.')
         public_key.verify(
-            base64.b64decode(signature, validate=True),
+            signature_bytes,
             payload,
             padding.PKCS1v15(),
             hashes.SHA256(),
         )
     except InvalidSignature as exc:
-        raise ValueError('License signature is invalid.') from exc
+        raise ValueError('License signature does not match the license contents.') from exc
     except (TypeError, ValueError) as exc:
         if isinstance(exc, ValueError):
             raise
@@ -111,7 +128,7 @@ def verify_doc(doc: dict) -> dict:
     if license_data.get('product') != PRODUCT:
         raise ValueError(f'License product must be {PRODUCT}.')
     host_id = machine_id()
-    if not host_id or license_data.get('machine_id') != host_id:
+    if machine_id_enforcement_enabled() and (not host_id or license_data.get('machine_id') != host_id):
         raise ValueError('License is for a different machine.')
     max_devices = license_data.get('max_devices')
     if isinstance(max_devices, bool) or not isinstance(max_devices, int) or max_devices < 0:
@@ -195,8 +212,13 @@ def can_add(name: str) -> tuple:
         return False, 'Invalid device name.'
     if name in device_names():
         return True, ''
+    license_data = get_license()
+    if not license_data['valid'] and not LICENSE_ENFORCEMENT_ENABLED:
+        return True, ''
+    if not license_data['valid']:
+        return False, 'A valid NEU159 license is required to add devices.'
     used = count_devices()
-    maximum = get_max_devices()
+    maximum = license_data['max_devices']
     if used >= maximum:
         return False, f'Device limit reached ({used}/{maximum}).'
     return True, ''
@@ -253,6 +275,8 @@ def _lsblk_devices() -> list:
 def _neu_usb_folder(mountpoint: str):
     if not mountpoint or os.path.islink(mountpoint) or not os.path.isdir(mountpoint):
         return None
+    if os.path.basename(os.path.normpath(mountpoint)).casefold() == USB_DIR_NAME.casefold():
+        return mountpoint
     try:
         with os.scandir(mountpoint) as entries:
             for entry in entries:
@@ -323,6 +347,27 @@ def _license_arch() -> str:
             'armv7l': 'armhf'}.get(machine, machine)
 
 
+def _parse_license_json(raw: str) -> dict:
+    """Accept JSON licenses whose base64 signature was line-wrapped by a tool."""
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as original_error:
+        signature_pattern = r'("signature"\s*:\s*")([^"]*)(")'
+        normalized, replacements = re.subn(
+            signature_pattern,
+            lambda match: match.group(1) + re.sub(r'[\s\\]+', '', match.group(2)) + match.group(3),
+            raw,
+            count=1,
+            flags=re.DOTALL,
+        )
+        if not replacements:
+            raise original_error
+        document = json.loads(normalized)
+    if isinstance(document, dict) and isinstance(document.get('signature'), str):
+        document['signature'] = re.sub(r'[\s\\]+', '', document['signature'])
+    return document
+
+
 def _read_usb_license(folder: str) -> dict:
     licenses_dir = os.path.join(folder, 'licenses')
     if os.path.islink(licenses_dir) or not os.path.isdir(licenses_dir):
@@ -336,23 +381,31 @@ def _read_usb_license(folder: str) -> dict:
     elif os.path.isdir(arch_path) and not os.path.islink(arch_path):
         if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', controller_id):
             candidates.append(os.path.join(arch_path, f'{controller_id}.json'))
-        candidates.append(os.path.join(arch_path, 'license.json'))
+        candidates.extend([
+            os.path.join(arch_path, 'license.json'),
+            os.path.join(arch_path, 'license.lic'),
+        ])
     candidates.append(os.path.join(licenses_dir, f'{arch}.json'))
 
     for candidate in candidates:
         if os.path.islink(candidate) or not os.path.isfile(candidate):
             continue
+        document = None
         try:
             if os.path.getsize(candidate) > MAX_LICENSE_BYTES:
                 raise USBStatusError('no_license', 'The USB license file exceeds the allowed size.')
             with open(candidate, 'r', encoding='utf-8') as license_file:
-                document = json.load(license_file)
+                document = _parse_license_json(license_file.read())
             verify_doc(document)
             return document
         except USBStatusError:
             raise
         except (OSError, json.JSONDecodeError, ValueError) as exc:
-            raise USBStatusError('no_license', f'USB license was rejected: {exc}') from exc
+            message = f'USB license was rejected: {exc}'
+            if isinstance(document, dict) and isinstance(document.get('license'), dict):
+                if machine_id_enforcement_enabled() and document['license'].get('machine_id') != machine_id():
+                    message += ' Its machine ID does not match this controller.'
+            raise USBStatusError('no_license', message) from exc
     raise USBStatusError('no_license', f'No license for {_license_arch()} and this controller was found on the USB.')
 
 
@@ -665,6 +718,11 @@ def config():
     return render_template('config.html')
 
 
+@app.route('/license')
+def license_activation():
+    return render_template('license.html')
+
+
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
@@ -806,7 +864,9 @@ def start_service(name):
         with add_lock:
             used = count_devices()
             maximum = get_max_devices()
-            if not get_license()['valid'] or used > maximum:
+            license_valid = get_license()['valid']
+            if ((LICENSE_ENFORCEMENT_ENABLED and not license_valid) or
+                    (license_valid and used > maximum)):
                 return config_limit_error(used)
             create_systemd_service(name)
             subprocess.run(['systemctl', 'restart', service_name], check=True)
@@ -1365,6 +1425,7 @@ def api_usb_install_license():
             return jsonify({'error': license_data['reason']}), 500
         return jsonify({
             'message': 'License installed successfully. The USB can now be removed.',
+            'saved_to': str(Path(LICENSE_PATH).resolve()),
             'license': {
                 'license_id': license_data.get('license_id'),
                 'license_type': license_data.get('license_type'),
@@ -1382,8 +1443,13 @@ def api_usb_install_license():
 
 @app.before_request
 def require_license_for_application():
-    allowed_endpoints = {'static', 'api_license', 'api_usb_status', 'api_usb_install_license'}
+    allowed_endpoints = {
+        'static', 'index', 'dashboard', 'dashboard_stats', 'license_activation',
+        'api_license', 'api_usb_status', 'api_usb_install_license',
+    }
     if request.endpoint in allowed_endpoints:
+        return None
+    if not LICENSE_ENFORCEMENT_ENABLED:
         return None
     if get_license()['valid']:
         return None

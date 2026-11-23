@@ -3,7 +3,7 @@
 fetch('/api/license', { cache: 'no-store' })
     .then(response => response.json())
     .then(data => {
-        if (!data.valid) window.location.replace('/');
+        if (!data.valid) console.info('No cached NEU159 license is installed yet.');
     })
     .catch(error => {
         console.error('License status request failed:', error);
