@@ -99,6 +99,34 @@ body.dark tr .config-status.inactive { color: #f87171; }
 body.dark ::-webkit-scrollbar-track { background: var(--bg); }
 body.dark ::-webkit-scrollbar-thumb { background: #2c2f36; }
 
+
+/* ===== Icons, status dots, professional polish (global, not dark-only) ===== */
+.icon { width: 15px; height: 15px; vertical-align: -3px; margin-right: 6px; flex-shrink: 0; }
+button .icon:only-child, #themeToggle .icon, .stat-icon .icon, .device-icon .icon { margin-right: 0; }
+#themeToggle .icon { width: 16px; height: 16px; vertical-align: middle; }
+.stat-icon .icon { width: 22px; height: 22px; }
+.device-icon .icon { width: 18px; height: 18px; }
+.i-sun { display: none; }
+body.dark .i-moon { display: none; }
+body.dark .i-sun { display: inline; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.dot-green { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .2); }
+.dot-red { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .2); }
+input, select, textarea, button { font-family: inherit; }
+
+/* neutral row action buttons (edit / delete) instead of loud yellow & red blocks */
+button.bg-yellow-500, button.bg-red-500 {
+  background: transparent !important;
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 4px 8px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+button.bg-yellow-500 { color: #f59e0b !important; }
+button.bg-red-500 { color: #f87171 !important; }
+button.bg-yellow-500:hover { background: rgba(245, 158, 11, .12) !important; }
+button.bg-red-500:hover { background: rgba(239, 68, 68, .12) !important; }
+
 /* inline-styled light badges/boxes (needs !important to beat style="...") */
 body.dark .status-badge,
 body.dark [style*="background:#f1f5f9"],

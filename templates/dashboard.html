@@ -105,7 +105,7 @@
     </style>
     <link rel="stylesheet" href="/static/dark.css">
 </head>
-<body>
+<body class="dark">
 
 <!-- NAVBAR -->
 <nav class="navbar">
@@ -116,7 +116,12 @@
     <div class="navbar-right">
         <a href="/dashboard" class="active">Dashboard</a>
         <a href="/configuration">Configuration</a>
+<<<<<<< HEAD
+        <a href="/license">Activate License</a>
+        <button id="themeToggle" title="Toggle theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+=======
         <button id="themeToggle">🌙</button>
+>>>>>>> 09b9dcb7781cb60057ab459d38e74f5198e6a921
     </div>
 </nav>
 
@@ -127,17 +132,17 @@
 
     <div class="stats-grid">
         <div class="stat-card total">
-            <div class="stat-icon">📡</div>
+            <div class="stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></div>
             <div class="stat-label">Total Devices</div>
             <div class="stat-value" id="totalDevices">0</div>
         </div>
         <div class="stat-card active">
-            <div class="stat-icon">🟢</div>
+            <div class="stat-icon"><span class="dot dot-green"></span></div>
             <div class="stat-label">Active</div>
             <div class="stat-value" id="activeDevices">0</div>
         </div>
         <div class="stat-card inactive">
-            <div class="stat-icon">🔴</div>
+            <div class="stat-icon"><span class="dot dot-red"></span></div>
             <div class="stat-label">Inactive</div>
             <div class="stat-value" id="inactiveDevices">0</div>
         </div>
@@ -147,8 +152,8 @@
 {% include 'license_overlay.html' %}
 <script src="/static/dashboard.js"></script>
 <script>
-    if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.add('dark');
+    if (localStorage.getItem('darkMode') === 'false') {
+        document.body.classList.remove('dark');
     }
     document.getElementById('themeToggle').addEventListener('click', function () {
         document.body.classList.toggle('dark');
