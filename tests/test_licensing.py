@@ -92,8 +92,11 @@ class LicenseVerificationTests(unittest.TestCase):
             response = app.app.test_client().get('/api/usb/status')
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()['state'], 'no_license')
-        self.assertIn('PEM private key', response.get_json()['message'])
+        payload = response.get_json()
+        self.assertEqual(payload['state'], 'no_license')
+        self.assertIn('PEM private key', payload['message'])
+        self.assertEqual(payload['diagnostics']['signature']['format'], 'pem_key')
+        self.assertNotIn('not-a-signature', json.dumps(payload))
 
     def test_tampered_license_contents_fail_signature_check(self):
         document = self.make_document()
