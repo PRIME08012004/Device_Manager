@@ -99,4 +99,16 @@ body.dark tr .config-status.inactive { color: #f87171; }
 body.dark ::-webkit-scrollbar-track { background: var(--bg); }
 body.dark ::-webkit-scrollbar-thumb { background: #2c2f36; }
 
-
+/* inline-styled light badges/boxes (needs !important to beat style="...") */
+body.dark .status-badge,
+body.dark [style*="background:#f1f5f9"],
+body.dark [style*="background: #f1f5f9"],
+body.dark [style*="background:#f8fafc"],
+body.dark [style*="background: #f8fafc"],
+body.dark [style*="background:#fff"],
+body.dark [style*="background:#ffffff"],
+body.dark [style*="background: #fff"],
+body.dark [style*="background: #ffffff"] {
+  background: var(--surface2) !important;
+  color: var(--text2) !important;
+}
