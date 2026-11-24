@@ -1,0 +1,102 @@
+/* dark.css - Neutron "all black" theme (Grafana-style)
+   Works with the existing body.dark toggle (moon button). Load AFTER inline <style>. */
+
+body.dark {
+  --bg: #0b0c0e;
+  --surface: #111217;
+  --surface2: #181b1f;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #d8d9da;
+  --text2: #9fa3ad;
+  --text3: #5f6370;
+  --primary-light: rgba(99, 102, 241, 0.16);
+  --shadow: none;
+  --shadow-md: none;
+  color-scheme: dark;
+}
+
+body.dark,
+body.dark .main,
+body.dark .content,
+body.dark main { background: var(--bg) !important; color: var(--text); }
+
+/* top bar, sidebar, cards, panels */
+body.dark .navbar { background: #0b0c0e !important; border-bottom: 1px solid var(--border); }
+body.dark .sidebar,
+body.dark aside { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark .card,
+body.dark .panel,
+body.dark .metric-card,
+body.dark .form-section,
+body.dark .tab-panel,
+body.dark .modal,
+body.dark .info-grid > * { background: var(--surface) !important; border-color: var(--border) !important; }
+body.dark .metric-card { background: var(--surface2) !important; }
+
+/* tailwind utility leftovers (index.html) */
+body.dark .bg-white,
+body.dark .bg-gray-50,
+body.dark .bg-gray-100 { background-color: var(--surface) !important; }
+body.dark .text-gray-800,
+body.dark .text-gray-700,
+body.dark .text-gray-600 { color: var(--text) !important; }
+body.dark .border-gray-200,
+body.dark .border-gray-300 { border-color: var(--border) !important; }
+
+/* headings / labels */
+body.dark h1, body.dark h2, body.dark h3, body.dark h4,
+body.dark .form-section-title { color: #f2f3f5 !important; border-color: var(--border) !important; }
+body.dark label, body.dark .fg label, body.dark th { color: var(--text2) !important; }
+
+/* inputs */
+body.dark input,
+body.dark select,
+body.dark textarea,
+body.dark .fg input,
+body.dark .fg select,
+body.dark .search-box,
+body.dark .data-table input,
+body.dark .fg .is-tag-pill {
+  background: var(--surface2) !important;
+  color: var(--text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+body.dark input::placeholder,
+body.dark textarea::placeholder { color: var(--text3); }
+body.dark input:focus,
+body.dark select:focus,
+body.dark textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, .25) !important;
+  background: var(--surface2) !important;
+}
+body.dark select option { background: var(--surface2); color: var(--text); }
+
+/* tables / device list */
+body.dark .data-table thead th,
+body.dark #configList thead tr { background: var(--surface2) !important; }
+body.dark .data-table td,
+body.dark .data-table th,
+body.dark #configList td { border-color: var(--border) !important; }
+body.dark #configList tr:hover td,
+body.dark .data-table tbody tr:hover td { background: rgba(255, 255, 255, 0.04) !important; }
+
+/* buttons + dropdowns */
+body.dark .btn-action,
+body.dark .dd-btn { background: var(--surface2); color: var(--text); border-color: rgba(255,255,255,.12); }
+body.dark .row-dropdown { background: var(--surface2); border-color: rgba(255,255,255,.12); }
+body.dark .dd-btn:hover { background: #22252b; }
+body.dark #testOutput { background: #000; color: #818cf8; border-color: var(--border); }
+body.dark #snmpV3Fields { background: var(--surface2); border-color: var(--border); }
+
+/* status colours need to be brighter on black */
+body.dark .config-status.active,
+body.dark tr .config-status.active { color: #4ade80; }
+body.dark .config-status.inactive,
+body.dark tr .config-status.inactive { color: #f87171; }
+
+/* scrollbars */
+body.dark ::-webkit-scrollbar-track { background: var(--bg); }
+body.dark ::-webkit-scrollbar-thumb { background: #2c2f36; }
+
+
