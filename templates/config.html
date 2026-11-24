@@ -1183,7 +1183,7 @@
     <link rel="stylesheet" href="/static/dark.css">
 </head>
 
-<body>
+<body class="dark">
 
     <!-- NAVBAR -->
     <nav class="navbar">
@@ -1194,20 +1194,20 @@
         <div class="navbar-right">
             <a href="/dashboard">Dashboard</a>
             <a href="/configuration" class="active">Configuration</a>
-            <button id="themeToggle">🌙</button>
+            <button id="themeToggle" title="Toggle theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
         </div>
     </nav>
 
     <!-- ONE shared dropdown menu — repositioned per row click -->
     <div class="row-dropdown" id="rowDropdown">
         <button class="dd-btn run" id="dd-run">▶&nbsp; Run</button>
-        <button class="dd-btn stop" id="dd-stop">⏹&nbsp; Stop</button>
+        <button class="dd-btn stop" id="dd-stop"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="5" y="5" rx="2"/></svg>Stop</button>
         <div class="dd-sep"></div>
-        <button class="dd-btn edit" id="dd-edit">✏️&nbsp; Edit</button>
-        <button class="dd-btn test" id="dd-test">🔌&nbsp; Test</button>
+        <button class="dd-btn edit" id="dd-edit"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>Edit</button>
+        <button class="dd-btn test" id="dd-test"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>Test</button>
         <button class="dd-btn copy" id="dd-copy">⧉&nbsp; Copy</button>
         <div class="dd-sep"></div>
-        <button class="dd-btn del" id="dd-del">🗑&nbsp; Delete</button>
+        <button class="dd-btn del" id="dd-del"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Delete</button>
     </div>
 
     <!-- APP LAYOUT -->
@@ -1254,7 +1254,7 @@
 
             <!-- Detail Header -->
             <div class="detail-header">
-                <div class="device-icon">⚡</div>
+                <div class="device-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div>
                 <div class="device-meta">
                     <div class="device-name-row">
                         <span class="device-name" id="hdr-name">Add/Edit Device</span>
@@ -1266,21 +1266,21 @@
                 <div class="header-actions">
 
                     <input type="file" id="mibFileInput" accept=".mib,.txt" style="display:none;">
-                    <button id="uploadMibBtn" type="button" class="btn-action">📤 Upload MIB</button>
-                    <button id="browseMibsBtn" type="button" class="btn-action">📂 Browse MIBs</button>
-                    <button id="saveConfigBtn" class="btn-action primary">💾 Save Changes</button>
-                    <button id="cancelEditBtn" class="btn-action danger" onclick="cancelEdit()">✕ Cancel</button>
+                    <button id="uploadMibBtn" type="button" class="btn-action"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>Upload MIB</button>
+                    <button id="browseMibsBtn" type="button" class="btn-action"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Browse MIBs</button>
+                    <button id="saveConfigBtn" class="btn-action primary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save Changes</button>
+                    <button id="cancelEditBtn" class="btn-action danger" onclick="cancelEdit()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Cancel</button>
                 </div>
             </div>
 
             <!-- Tab Bar -->
             <div class="tab-bar">
-                <div class="tab-item" data-tab="overview">📊 Overview</div>
-                <div class="tab-item active" data-tab="config">⚙️Add/Edit Configuration</div>
-                <div class="tab-item" data-tab="registers">📋 Fields</div>
-                <div class="tab-item" data-tab="tags">🏷️ Tags</div>
-                <div class="tab-item" data-tab="integrations">🔗 Integrations</div>
-                <div class="tab-item" data-tab="logs">📝 Logs</div>
+                <div class="tab-item" data-tab="overview"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>Overview</div>
+                <div class="tab-item active" data-tab="config"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Add/Edit Configuration</div>
+                <div class="tab-item" data-tab="registers"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>Fields</div>
+                <div class="tab-item" data-tab="tags"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>Tags</div>
+                <div class="tab-item" data-tab="integrations"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Integrations</div>
+                <div class="tab-item" data-tab="logs"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>Logs</div>
             </div>
 
             <!-- Tab Panels -->
@@ -1556,7 +1556,7 @@
                         </div>
 
                         <!-- <div style="display:flex;gap:8px;margin-top:12px;">
-                        <button type="button" id="saveConfigBtn2" class="btn-save-config" onclick="document.getElementById('saveConfigBtn').click()">💾 Save Configuration</button>
+                        <button type="button" id="saveConfigBtn2" class="btn-save-config" onclick="document.getElementById('saveConfigBtn').click()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save Configuration</button>
                     </div> -->
                     </form>
                 </div>
@@ -1768,11 +1768,11 @@
             <div
                 style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-weight:700;font-size:15px;">📂 Previously Uploaded MIB Files</span>
+                    <span style="font-weight:700;font-size:15px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Uploaded MIB Files</span>
                     <span id="browseMibsCount" style="font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 8px;border-radius:12px;">0 files</span>
                 </div>
                 <span onclick="document.getElementById('browseMibsOverlay').style.display='none';"
-                    style="cursor:pointer;font-size:16px;color:var(--text2);padding:4px;">✕</span>
+                    style="cursor:pointer;font-size:16px;color:var(--text2);padding:4px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
             </div>
             <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;">
                 <input type="text" id="browseMibsSearch" placeholder="Search uploaded MIB files..."
@@ -1807,7 +1807,7 @@
                         <span style="font-weight:600;color:var(--primary,#6366f1);">— <span id="mibWalkFilename"></span></span>
                     </div>
                     <span onclick="closeMibWalkModal();"
-                        style="cursor:pointer;font-size:18px;line-height:1;color:var(--text2);padding:2px;">✕</span>
+                        style="cursor:pointer;font-size:18px;line-height:1;color:var(--text2);padding:2px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
                 </div>
                 <div id="mibWalkHeaderSubrow" style="display:flex;align-items:center;gap:14px;margin-top:6px;">
                     <span id="mibWalkLiveSource" style="font-size:11px;color:var(--text2);white-space:nowrap;"></span>
@@ -1816,7 +1816,7 @@
 
             <!-- Direct SNMP Query Toolbar (Commented out for future use)
             <div style="padding:8px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;">
-                <span style="font-weight:600;color:var(--text);">⚡ Direct SNMP Live Query:</span>
+                <span style="font-weight:600;color:var(--text);">Direct SNMP Live Query:</span>
                 <input type="text" id="snmpDirectHost" placeholder="Host IP (e.g. 192.168.1.1)" style="width:150px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
                 <input type="number" id="snmpDirectPort" placeholder="Port" value="161" style="width:60px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
                 <input type="text" id="snmpDirectCommunity" placeholder="Community" value="public" style="width:90px;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;">
@@ -1828,7 +1828,7 @@
             <div style="padding:12px 20px;display:flex;gap:10px;align-items:center;background:var(--surface2);border-bottom:1px solid var(--border);">
                 <input type="text" id="mibWalkSearch" placeholder="Search by name, OID, or value..."
                     style="flex:1;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-                <button type="button" id="mibWalkViewToggle" class="btn-action" style="white-space:nowrap;">☰ Flat View</button>
+                <button type="button" id="mibWalkViewToggle" class="btn-action" style="white-space:nowrap;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>Flat View</button>
                 <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;cursor:pointer;">
                     <input type="checkbox" id="mibWalkLiveToggle"> Live refresh
                 </label>

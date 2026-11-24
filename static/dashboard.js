@@ -14,7 +14,7 @@ function loadDashboardStats() {
     const active = document.getElementById('activeDevices');
     const inactive = document.getElementById('inactiveDevices');
 
-    if (!total || !active || !inactive) return; // 👈 key line
+    if (!total || !active || !inactive) return; // key line
 
     axios.get('/dashboard/stats').then(res => {
         total.textContent = res.data.total;

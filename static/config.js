@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     function renderConfigs() {
         if (typeof axios === 'undefined') {
-            testOutput.textContent = '❌ Axios not loaded';
+            testOutput.textContent = 'Axios not loaded';
             return;
         }
         axios.get('/configs').then(res => {
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }).catch(err => {
-            testOutput.textContent = `❌ Error loading configurations: ${err.message}`;
+            testOutput.textContent = `Error loading configurations: ${err.message}`;
         });
     }
 
@@ -106,15 +106,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // window.startService = name => {
     //     axios.post(`/start_service/${name}`)
-    //         .then(() => { testOutput.textContent = `✅ Started ${name}`; updateStatuses(); })
-    //         .catch(err => { testOutput.textContent = `❌ Error starting ${name}: ${err.message}`; updateStatuses(); });
+    //         .then(() => { testOutput.textContent = `Started ${name}`; updateStatuses(); })
+    //         .catch(err => { testOutput.textContent = `Error starting ${name}: ${err.message}`; updateStatuses(); });
     // };
 
 
     window.startService = name => {
     axios.post(`/start_service/${name}`)
         .then(() => {
-            testOutput.textContent = `✅ Started ${name}`;
+            testOutput.textContent = `Started ${name}`;
             updateStatuses();
             editConfig(name);  // ← loads overview for selected device
         })
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (showConfigLimitPopup(err)) {
                 testOutput.textContent = err.response.data.message;
             } else {
-                testOutput.textContent = `❌ Error starting ${name}: ${err.message}`;
+                testOutput.textContent = `Error starting ${name}: ${err.message}`;
             }
             updateStatuses();
         });
@@ -130,15 +130,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // window.stopService = name => {
     //     axios.post(`/stop_service/${name}`)
-    //         .then(() => { testOutput.textContent = `✅ Stopped ${name}`; updateStatuses(); })
-    //         .catch(err => { testOutput.textContent = `❌ Error stopping ${name}: ${err.message}`; updateStatuses(); });
+    //         .then(() => { testOutput.textContent = `Stopped ${name}`; updateStatuses(); })
+    //         .catch(err => { testOutput.textContent = `Error stopping ${name}: ${err.message}`; updateStatuses(); });
     // };
 
 
     window.stopService = name => {
     axios.post(`/stop_service/${name}`)
         .then(() => {
-            testOutput.textContent = `✅ Stopped ${name}`;
+            testOutput.textContent = `Stopped ${name}`;
             updateStatuses();
             if (activeDevice === name) {
                 activeDevice = null;
@@ -160,14 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 deviceNameInput.disabled = false;
             }
         })
-        .catch(err => { testOutput.textContent = `❌ Error stopping ${name}: ${err.message}`; updateStatuses(); });
+        .catch(err => { testOutput.textContent = `Error stopping ${name}: ${err.message}`; updateStatuses(); });
 };
 
     // function loadConfig(name) {
     //     axios.get(`/config/${name}`).then(() => {
-    //         testOutput.textContent = `✅ Loaded configuration: ${name}.conf`;
+    //         testOutput.textContent = `Loaded configuration: ${name}.conf`;
     //     }).catch(err => {
-    //         testOutput.textContent = `❌ Error loading ${name}: ${err.message}`;
+    //         testOutput.textContent = `Error loading ${name}: ${err.message}`;
     //     });
     // }
     function loadConfig(name) {
@@ -322,8 +322,8 @@ if (ovInteg) {
             cancelEditBtn.style.display = 'inline-block';
             deviceNameInput.disabled = true;
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            testOutput.textContent = `✅ Loaded all fields for: ${name}.conf`;
-            activeDevice = name;          // 👈 REQUIRED
+            testOutput.textContent = `Loaded all fields for: ${name}.conf`;
+            activeDevice = name;          // REQUIRED
             window.activeProtocol = data.protocol;  // ← ADD THIS
 startLiveDataPolling();
             axios.get('/api/modbus_config').then(res => {
@@ -333,16 +333,16 @@ startLiveDataPolling();
 }).catch(() => {});
 
         }).catch(err => {
-            alert(`❌ Error loading config: ${err.response?.data?.error || err.message}`);
+            alert(`Error loading config: ${err.response?.data?.error || err.message}`);
         });
     }
 
     window.deleteConfig = function(name)  {
         if (!confirm(`Delete ${name}.conf?`)) return;
         axios.delete(`/config/${name}`).then(() => {
-            testOutput.textContent = `✅ Deleted ${name}.conf`;
+            testOutput.textContent = `Deleted ${name}.conf`;
             renderConfigs();
-        }).catch(err => { testOutput.textContent = `❌ Error deleting ${name}: ${err.message}`; });
+        }).catch(err => { testOutput.textContent = `Error deleting ${name}: ${err.message}`; });
     }
 
     function analyzeTestOutput(output) {
@@ -351,42 +351,42 @@ startLiveDataPolling();
 
         // Device disconnected / unreachable
         if (/connection refused|no route to host|network is unreachable|i\/o timeout|timed out|request timeout|no response|exception '?11'?|gateway target device/i.test(text)) {
-            issues.push('🔌 Device disconnected or not responding (check host, port, slave ID, cable/network)');
+            issues.push('Device disconnected or not responding (check host, port, slave ID, cable/network)');
         }
         // Modbus register errors
         if (/illegal data address|exception '?2'?/i.test(text)) {
-            issues.push('📋 Register error: illegal data address (wrong address or register type, e.g. input vs holding)');
+            issues.push('Register error: illegal data address (wrong address or register type, e.g. input vs holding)');
         }
         if (/illegal data value|exception '?3'?/i.test(text)) {
-            issues.push('📋 Register error: illegal data value (check data type / address count)');
+            issues.push('Register error: illegal data value (check data type / address count)');
         }
         if (/slave device failure|exception '?4'?/i.test(text)) {
-            issues.push('⚠️ Device reported an internal failure (slave device failure)');
+            issues.push('Device reported an internal failure (slave device failure)');
         }
         if (/illegal function|exception '?1'?/i.test(text)) {
-            issues.push('📋 Register error: illegal function (device does not support this register type)');
+            issues.push('Register error: illegal function (device does not support this register type)');
         }
         // SNMP
         if (/authentication failure|unknown user name|wrong digest|unsupported security level/i.test(text)) {
-            issues.push('🔐 SNMP authentication error (check community / SNMPv3 credentials)');
+            issues.push('SNMP authentication error (check community / SNMPv3 credentials)');
         }
         if (/no such object|no such instance|nosuchname/i.test(text)) {
-            issues.push('📋 SNMP error: OID not found on device');
+            issues.push('SNMP error: OID not found on device');
         }
         // Any other Telegraf error lines
         const errLines = text.split('\n').filter(l => /\bE!|\bError\b|panic|fatal/i.test(l));
         if (errLines.length && issues.length === 0) {
-            issues.push('❌ Errors reported:\n   ' + errLines.slice(0, 5).join('\n   '));
+            issues.push('Errors reported:\n   ' + errLines.slice(0, 5).join('\n   '));
         }
         // Empty output = nothing was collected
         if (!text.trim()) {
-            issues.push('⚠️ No output received from device');
+            issues.push('No output received from device');
         }
         return issues;
     }
 
     window.testConfig = function (name) {
-        testOutput.textContent = `⏳ Testing ${name}...`;
+        testOutput.textContent = `Testing ${name}...`;
         testOutput.style.color = '';
 
         axios.get(`/test_config/${name}`, { validateStatus: () => true })
@@ -401,17 +401,17 @@ startLiveDataPolling();
                 if (failedStatus || issues.length > 0) {
                     testOutput.style.color = '#ef4444';
                     testOutput.textContent =
-                        `❌ Test FAILED for ${name}\n\n` +
+                        `Test FAILED for ${name}\n\n` +
                         (issues.length ? issues.join('\n') + '\n\n' : '') +
                         `--- Raw output ---\n${output || '(empty)'}`;
                 } else {
                     testOutput.style.color = '#16a34a';
-                    testOutput.textContent = `✅ Test passed for ${name}\n\n${output}`;
+                    testOutput.textContent = `Test passed for ${name}\n\n${output}`;
                 }
             })
             .catch(err => {
                 testOutput.style.color = '#ef4444';
-                testOutput.textContent = `❌ Could not reach the server: ${err.message}`;
+                testOutput.textContent = `Could not reach the server: ${err.message}`;
             });
     };
 
@@ -422,23 +422,23 @@ startLiveDataPolling();
     window.duplicateConfig = function(name) {
         const newName = prompt(`Enter new name for duplicate of ${name}:`);
         if (!newName || existingConfigNames.includes(newName)) {
-            testOutput.textContent = '❌ Invalid or duplicate name';
+            testOutput.textContent = 'Invalid or duplicate name';
             return;
         }
         axios.post(`/duplicate_config/${name}`, { new_name: newName })
-            .then(res => { testOutput.textContent = `✅ ${res.data.message}`; renderConfigs(); })
+            .then(res => { testOutput.textContent = `${res.data.message}`; renderConfigs(); })
             .catch(err => {
                 if (showConfigLimitPopup(err)) {
                     testOutput.textContent = err.response.data.message;
                 } else {
-                    testOutput.textContent = `❌ Error duplicating: ${err.message}`;
+                    testOutput.textContent = `Error duplicating: ${err.message}`;
                 }
             });
     }
 
     // Dark mode
-    if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.add('dark');
+    if (localStorage.getItem('darkMode') === 'false') {
+        document.body.classList.remove('dark');
     }
     themeToggle.addEventListener('click', () => {
         document.body.classList.toggle('dark');
@@ -543,12 +543,12 @@ startLiveDataPolling();
             'STRING': []
         };
         if (dataType === 'STRING') {
-            byteOrderWarning.textContent = '⚠️ STRING does not require a byte order';
+            byteOrderWarning.textContent = 'STRING does not require a byte order';
             byteOrderLabel.style.display = 'none';
         } else {
             byteOrderLabel.style.display = 'block';
             if (!recommendedOptions[dataType].includes(byteOrder)) {
-                byteOrderWarning.textContent = `⚠️ ${byteOrder} is not recommended for ${dataType}. Recommended: ${recommendedOptions[dataType].join(', ')}`;
+                byteOrderWarning.textContent = `${byteOrder} is not recommended for ${dataType}. Recommended: ${recommendedOptions[dataType].join(', ')}`;
             } else {
                 byteOrderWarning.textContent = '';
             }
@@ -687,8 +687,8 @@ startLiveDataPolling();
     <td class="p-3">${isBinaryType ? '-' : `<input type="text" value="${reg.data_type}" class="reg-datatype border p-1 text-xs w-full" data-index="${index}">`}</td>
     <td class="p-3">${isBinaryType ? '-' : `<input type="number" value="${reg.scale}" class="reg-scale border p-1 text-xs w-full" data-index="${index}">`}</td>
     <td class="p-3 flex space-x-2">
-        <button type="button" onclick="editRegister(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600">✏️</button>
-        <button type="button" onclick="deleteRegister(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">❌</button>
+        <button type="button" onclick="editRegister(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+        <button type="button" onclick="deleteRegister(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
     </td>`;
             registersTable.appendChild(row);
         });
@@ -704,8 +704,8 @@ startLiveDataPolling();
     <td class="p-3"><input type="text" value="${field.oid}" class="field-oid border p-1 text-xs w-full" data-index="${index}"></td>
     <td class="p-3">${field.is_tag ? 'Yes' : 'No'}</td>
     <td class="p-3 flex space-x-2">
-        <button type="button" onclick="editField(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600">✏️</button>
-        <button type="button" onclick="deleteField(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">❌</button>
+        <button type="button" onclick="editField(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+        <button type="button" onclick="deleteField(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
     </td>`;
             fieldsTable.appendChild(row);
         });
@@ -722,8 +722,8 @@ startLiveDataPolling();
     <td class="p-3"><input type="text" value="${label || ''}" class="tag-label border p-1 text-xs w-full" data-index="${index}"></td>
     <td class="p-3"><input type="text" value="${value || ''}" class="tag-value border p-1 text-xs w-full" data-index="${index}"></td>
     <td class="p-3 flex space-x-2">
-        <button type="button" onclick="editTag(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md">✏️</button>
-        <button type="button" onclick="deleteTag(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md">❌</button>
+        <button type="button" onclick="editTag(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+        <button type="button" onclick="deleteTag(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
     </td>`;
             tagsTable.appendChild(row);
         });
@@ -739,15 +739,15 @@ startLiveDataPolling();
         const byteOrder = document.getElementById('byteOrder');
         const dataType = document.getElementById('dataType');
         const regScale = document.getElementById('regScale');
-        if (!registerType || !regName || !regAddress || !byteOrder || !dataType || !regScale) { alert('❌ Error: Field form elements not found'); return; }
+        if (!registerType || !regName || !regAddress || !byteOrder || !dataType || !regScale) { alert('Error: Field form elements not found'); return; }
         const isBinaryType = ['discrete_inputs', 'coils'].includes(registerType.value);
         const reg = { type: registerType.value, name: regName.value, address: regAddress.value };
         if (!isBinaryType) { reg.byte_order = byteOrder.value; reg.data_type = dataType.value; reg.scale = parseFloat(regScale.value) || 1.0; }
         const errors = validateRegister(reg);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentRegisters.push(reg);
         renderRegisters();
-        alert('✅ Field added');
+        alert('Field added');
         resetRegisterForm();
     };
 
@@ -763,10 +763,10 @@ startLiveDataPolling();
         const reg = { type: registerType.value, name: regName.value, address: regAddress.value };
         if (!isBinaryType) { reg.byte_order = byteOrder.value; reg.data_type = dataType.value; reg.scale = parseFloat(regScale.value) || 1.0; }
         const errors = validateRegister(reg);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentRegisters[editingIndex] = reg;
         renderRegisters();
-        alert('✅ Field updated');
+        alert('Field updated');
         resetRegisterForm();
     };
 
@@ -783,7 +783,7 @@ startLiveDataPolling();
         toggleRegisterFields();
     }
 
-    window.deleteRegister = (index) => { currentRegisters.splice(index, 1); renderRegisters(); alert('✅ Field deleted'); };
+    window.deleteRegister = (index) => { currentRegisters.splice(index, 1); renderRegisters(); alert('Field deleted'); };
     window.editRegister = (index) => {
         const reg = currentRegisters[index];
         document.getElementById('registerType').value = reg.type;
@@ -806,20 +806,20 @@ startLiveDataPolling();
     window.addField = () => {
         const field = { name: document.getElementById('fieldName').value, oid: document.getElementById('fieldOid').value, is_tag: document.getElementById('fieldIsTag').checked };
         const errors = validateField(field, -1);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentFields.push(field);
         renderFields();
-        alert('✅ Field added');
+        alert('Field added');
         resetFieldForm();
     };
     window.updateField = () => {
         const editingIndex = parseInt(editingFieldIndexInput.value);
         const field = { name: document.getElementById('fieldName').value, oid: document.getElementById('fieldOid').value, is_tag: document.getElementById('fieldIsTag').checked };
         const errors = validateField(field, editingIndex);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentFields[editingIndex] = field;
         renderFields();
-        alert('✅ Field updated');
+        alert('Field updated');
         resetFieldForm();
     };
     function resetFieldForm() {
@@ -830,7 +830,7 @@ startLiveDataPolling();
         addFieldBtn.textContent = 'Add Field';
         addFieldBtn.onclick = addField;
     }
-    window.deleteField = (index) => { currentFields.splice(index, 1); renderFields(); alert('✅ Field deleted'); };
+    window.deleteField = (index) => { currentFields.splice(index, 1); renderFields(); alert('Field deleted'); };
     window.editField = (index) => {
         const field = currentFields[index];
         document.getElementById('fieldName').value = field.name;
@@ -847,20 +847,20 @@ startLiveDataPolling();
     window.addTag = () => {
         const tag = { label: document.getElementById('tagLabel').value, value: document.getElementById('tagValue').value };
         const errors = validateTag(tag, -1);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentTags.push(tag);
         renderTags();
-        alert('✅ Tag added');
+        alert('Tag added');
         resetTagForm();
     };
     window.updateTag = () => {
         const editingIndex = parseInt(editingTagIndexInput.value);
         const tag = { label: document.getElementById('tagLabel').value, value: document.getElementById('tagValue').value };
         const errors = validateTag(tag, editingIndex);
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         currentTags[editingIndex] = tag;
         renderTags();
-        alert('✅ Tag updated');
+        alert('Tag updated');
         resetTagForm();
     };
     function resetTagForm() {
@@ -870,7 +870,7 @@ startLiveDataPolling();
         addTagBtn.textContent = 'Add Tag';
         addTagBtn.onclick = addTag;
     }
-    window.deleteTag = (index) => { currentTags.splice(index, 1); renderTags(); alert('✅ Tag deleted'); };
+    window.deleteTag = (index) => { currentTags.splice(index, 1); renderTags(); alert('Tag deleted'); };
     window.editTag = (index) => {
         const tag = currentTags[index];
         document.getElementById('tagLabel').value = tag.label;
@@ -907,8 +907,8 @@ startLiveDataPolling();
             <td class="p-3">${db.org}</td>
             <td class="p-3">${db.bucket}</td>
             <td class="p-3 flex space-x-2">
-                <button type="button" onclick="editInflux(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600">✏️</button>
-                <button type="button" onclick="deleteInflux(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">❌</button>
+                <button type="button" onclick="editInflux(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                <button type="button" onclick="deleteInflux(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
             </td>`;
             influxTable.appendChild(row);
         });
@@ -916,7 +916,7 @@ startLiveDataPolling();
 
     function addInflux() {
         const url = influxUrls.value.trim(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
-        if (!url || !token || !org || !bucket) { alert('❌ All fields are required'); return; }
+        if (!url || !token || !org || !bucket) { alert('All fields are required'); return; }
         currentInflux.push({ url, token, org, bucket });
         renderInflux();
         resetInfluxForm();
@@ -924,7 +924,7 @@ startLiveDataPolling();
 
     function updateInflux() {
         const url = influxUrls.value.trim(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
-        if (!url || !token || !org || !bucket) { alert('❌ All fields are required'); return; }
+        if (!url || !token || !org || !bucket) { alert('All fields are required'); return; }
         currentInflux[editingInfluxIndex] = { url, token, org, bucket };
         renderInflux();
         resetInfluxForm();
@@ -964,10 +964,10 @@ startLiveDataPolling();
     // =========================================================
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
         const errors = validateForm();
-        if (errors.length > 0) { alert(`❌ ${errors.join('; ')}`); return; }
+        if (errors.length > 0) { alert(`${errors.join('; ')}`); return; }
         const editingConfigName = editingConfigNameInput.value;
         const name = editingConfigName || configForm.name.value;
-        if (!editingConfigName && existingConfigNames.includes(name)) { alert('❌ Configuration name already exists'); return; }
+        if (!editingConfigName && existingConfigNames.includes(name)) { alert('Configuration name already exists'); return; }
         const data = {
             name, timeout: configForm.timeout.value, protocol: configForm.protocol.value,
             registers: currentRegisters, fields: currentFields, tags: currentTags,
@@ -1001,11 +1001,11 @@ startLiveDataPolling();
             }
         }
         axios.post(`/config/${name}`, data).then(res => {
-            alert(`✅ Configuration saved: ${res.data.message}`);
+            alert(`Configuration saved: ${res.data.message}`);
             renderConfigs();
 
 //             const expose = confirm("Do you want to expose this configuration as Modbus?");
-//             // In saveConfigBtn click, after alert('✅ Configuration saved'):
+//             // In saveConfigBtn click, after alert('Configuration saved'):
 // activeDevice = name;  // ← add this line
 // // Also clear UI immediately:
 // document.getElementById('live-voltage').textContent = '--';
@@ -1069,7 +1069,7 @@ document.getElementById('modbusSection').style.display = 'block';
 //             editingConfigNameInput.value = '';
 //             cancelEditBtn.style.display = 'none';
 //             deviceNameInput.disabled = false;
-//         }).catch(err => { alert(`❌ Error saving: ${err.response?.data?.error || err.message}`); });
+//         }).catch(err => { alert(`Error saving: ${err.response?.data?.error || err.message}`); });
 
         // Populate overview
 document.getElementById('ov-protocol').textContent = data.protocol || '—';
@@ -1109,7 +1109,7 @@ deviceNameInput.disabled = false;
 
 }).catch(err => {
     if (showConfigLimitPopup(err)) return;
-    alert(`❌ Error saving: ${err.response?.data?.error || err.message}`);
+    alert(`Error saving: ${err.response?.data?.error || err.message}`);
 });
     });
 
@@ -1207,7 +1207,7 @@ deviceNameInput.disabled = false;
     //                     }
     //                     const parsed = parseInt(newAddr);
     //                     if (isNaN(parsed) || parsed < 0 || parsed > 65535) {
-    //                         alert('❌ Invalid address. Must be 0–65535.');
+    //                         alert('Invalid address. Must be 0–65535.');
     //                         checkbox.checked = false;
     //                         return;
     //                     }
@@ -1291,7 +1291,7 @@ if (items.length === 0) {
                     if (newAddr === null) { checkbox.checked = false; return; }
                     const parsed = parseInt(newAddr);
                     if (isNaN(parsed) || parsed < range.min || parsed > range.max) {
-                        alert(`❌ Invalid. Must be ${range.min}–${range.max}`);
+                        alert(`Invalid. Must be ${range.min}–${range.max}`);
                         checkbox.checked = false;
                         return;
                     }
@@ -1317,11 +1317,11 @@ if (items.length === 0) {
             if (res.data.running) {
                 badge.style.background = '#dcfce7';
                 badge.style.color = '#166534';
-                badge.textContent = '🟢 Running (port 502)';
+                badge.textContent = 'Running (port 502)';
             } else {
                 badge.style.background = '#e2e8f0';
                 badge.style.color = '#475569';
-                badge.textContent = '⏸ Stopped';
+                badge.textContent = 'Stopped';
             }
             mbMapping = res.data.mapping || {};
         }).catch(() => {});
@@ -1487,7 +1487,7 @@ const reg = items[idx];
         const range = rangeMap[reg.type] || { min: 40001, max: 49999 };
 
         if (addr < range.min || addr > range.max) {
-            alert(`❌ "${reg.name}" must be ${range.min}–${range.max}`);
+            alert(`"${reg.name}" must be ${range.min}–${range.max}`);
             hasError = true;  // ← set flag
             return;
         }
@@ -1495,10 +1495,10 @@ const reg = items[idx];
     });
 
     if (hasError) return;  // ← stop here
-    if (Object.keys(finalMapping).length === 0) { alert('❌ Select at least one field'); return; }
+    if (Object.keys(finalMapping).length === 0) { alert('Select at least one field'); return; }
     axios.post('/api/modbus_config', { mapping: finalMapping })
-        .then(() => alert(`✅ ${Object.keys(finalMapping).length} field(s) exposed via Modbus!`))
-        .catch(err => alert(`❌ ${err.response?.data?.error || err.message}`));
+        .then(() => alert(`${Object.keys(finalMapping).length} field(s) exposed via Modbus!`))
+        .catch(err => alert(`${err.response?.data?.error || err.message}`));
 });
 
 document.getElementById('readMbRegistersBtn').addEventListener('click', () => {
@@ -1507,7 +1507,7 @@ document.getElementById('readMbRegistersBtn').addEventListener('click', () => {
     output.textContent = 'Fetching…';
     axios.get('/api/modbus_config').then(res => {
         output.textContent = JSON.stringify(res.data, null, 2);
-    }).catch(err => { output.textContent = `❌ ${err.message}`; });
+    }).catch(err => { output.textContent = `${err.message}`; });
 
 });
 
@@ -1563,7 +1563,7 @@ document.getElementById('mibFileInput')?.addEventListener('change', function () 
                 openMibWalkModal(filename, entries);
             });
         })
-        .catch(err => alert(`❌ MIB upload/walk failed: ${err.response?.data?.error || err.message}`))
+        .catch(err => alert(`MIB upload/walk failed: ${err.response?.data?.error || err.message}`))
         .finally(() => hideLoading());
 });
 
@@ -1637,8 +1637,8 @@ function renderBrowseMibsList(mibs) {
     listEl.innerHTML = mibs.map(m => {
         const isCached = !!mibCache[m.filename];
         const statusBadge = isCached
-            ? '<span class="status-badge" style="background:#dcfce7;color:#166534;font-size:10px;">⚡ Cached</span>'
-            : '<span class="status-badge" style="background:#f1f5f9;color:#64748b;font-size:10px;">☁️ Server</span>';
+            ? '<span class="status-badge" style="background:#dcfce7;color:#166534;font-size:10px;">Cached</span>'
+            : '<span class="status-badge" style="background:#f1f5f9;color:#64748b;font-size:10px;">Server</span>';
         
         return `
         <tr>
@@ -1647,8 +1647,8 @@ function renderBrowseMibsList(mibs) {
             <td style="color:var(--text2);font-size:11px;">${fmtDate(m.modified)}</td>
             <td>${statusBadge}</td>
             <td style="text-align:right;white-space:nowrap;">
-                <button type="button" class="btn-action primary" onclick="openMibFromBrowse('${m.filename}')" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;">👁️ Walk / Open</button>
-                <button type="button" class="btn-action danger" onclick="deleteMibFile('${m.filename}')" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;margin-left:4px;">🗑️ Delete</button>
+                <button type="button" class="btn-action primary" onclick="openMibFromBrowse('${m.filename}')" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;">Walk / Open</button>
+                <button type="button" class="btn-action danger" onclick="deleteMibFile('${m.filename}')" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;margin-left:4px;">Delete</button>
             </td>
         </tr>`;
     }).join('');
@@ -1677,7 +1677,7 @@ function openMibFromBrowse(filename) {
             mibCache[filename] = entries;
             openMibWalkModal(filename, entries);
         })
-        .catch(err => alert(`❌ Failed to load MIB file ${filename}: ${err.response?.data?.error || err.message}`))
+        .catch(err => alert(`Failed to load MIB file ${filename}: ${err.response?.data?.error || err.message}`))
         .finally(() => hideLoading());
 }
 
@@ -1688,7 +1688,7 @@ function deleteMibFile(filename) {
             delete mibCache[filename];
             fetchUploadedMibs();
         })
-        .catch(err => alert(`❌ Failed to delete MIB file: ${err.response?.data?.error || err.message}`));
+        .catch(err => alert(`Failed to delete MIB file: ${err.response?.data?.error || err.message}`));
 }
 
 // ── 3. MIB WALK MODAL ───────────────────────────────────────────────────────
@@ -1746,7 +1746,7 @@ function updateMibQueryBadge() {
         };
         document.body.appendChild(badge);
     }
-    badge.textContent = `⏳ Querying ${mibWalkCurrentFilename} — ${mibQueryProgress.done}/${mibQueryProgress.total}`;
+    badge.textContent = `Querying ${mibWalkCurrentFilename} — ${mibQueryProgress.done}/${mibQueryProgress.total}`;
     badge.style.display = 'flex';
 }
 
@@ -1939,7 +1939,7 @@ document.getElementById('mibWalkSelectAll')?.addEventListener('change', function
 });
 
 document.getElementById('mibWalkAddSelectedBtn')?.addEventListener('click', () => {
-    if (mibWalkSelected.size === 0) { alert('❌ No fields selected'); return; }
+    if (mibWalkSelected.size === 0) { alert('No fields selected'); return; }
     let added = 0;
     const skipped = [];
     mibWalkSelected.forEach(oid => {
@@ -1963,7 +1963,7 @@ document.getElementById('mibWalkAddSelectedBtn')?.addEventListener('click', () =
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelector('[data-tab="registers"]').classList.add('active');
     document.getElementById('tab-registers').classList.add('active');
-    let msg = `✅ ${added} field(s) added`;
+    let msg = `${added} field(s) added`;
     if (skipped.length) msg += `\n\nSkipped:\n${skipped.join('\n')}`;
     alert(msg);
 });
@@ -1999,7 +1999,7 @@ function fetchDirectSnmpValues() {
             const count = Object.keys(values).length;
             // Merge returned live values
             Object.assign(mibWalkLiveFields, values);
-            if (statusEl) statusEl.textContent = `✅ Received ${count} live values from ${host}:${port}`;
+            if (statusEl) statusEl.textContent = `Received ${count} live values from ${host}:${port}`;
             
             // Re-render MIB Walk table with new values
             const q = document.getElementById('mibWalkSearch')?.value.toLowerCase() || '';
@@ -2007,7 +2007,7 @@ function fetchDirectSnmpValues() {
             renderMibWalkResults(entries);
         })
         .catch(err => {
-            if (statusEl) statusEl.textContent = `❌ SNMP Query failed: ${err.message}`;
+            if (statusEl) statusEl.textContent = `SNMP Query failed: ${err.message}`;
         });
 }
 */

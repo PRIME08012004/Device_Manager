@@ -34,7 +34,7 @@ const addInfluxBtn = document.querySelector('button[onclick="addInfluxDB()"]');
 
     if (!configForm || !configList || !registersTable || !fieldsTable || !tagsTable || !testOutput || !byteOrderLabel || !byteOrderWarning || !regAddress || !editingConfigNameInput || !deviceNameInput || !addRegisterBtn || !addFieldBtn || !cancelEditBtn || !editingRegisterIndexInput || !editingFieldIndexInput || !registerTypeSelect || !byteOrderGroup || !dataTypeGroup || !scaleGroup || !addTagBtn || !editingTagIndexInput || !influxUrls || !influxToken || !influxOrg || !influxBucket || !modbusRegistersSection || !snmpFieldsSection) {
         console.error('Required DOM elements are missing');
-        if (testOutput) testOutput.textContent = '❌ Error: Required DOM elements are missing';
+        if (testOutput) testOutput.textContent = 'Error: Required DOM elements are missing';
         return;
     }
 
@@ -65,7 +65,7 @@ let editingInfluxIndex = -1;
         const dataTypeSelect = document.getElementById('dataType');
         const byteOrderSelect = document.getElementById('byteOrder');
         if (!dataTypeSelect || !byteOrderSelect) {
-            testOutput.textContent = '❌ Error: Data Type or Byte Order dropdown not found';
+            testOutput.textContent = 'Error: Data Type or Byte Order dropdown not found';
             return;
         }
 
@@ -86,12 +86,12 @@ let editingInfluxIndex = -1;
         };
 
         if (dataType === 'STRING') {
-            byteOrderWarning.textContent = '⚠️ STRING does not require a byte order';
+            byteOrderWarning.textContent = 'STRING does not require a byte order';
             byteOrderLabel.style.display = 'none';
         } else {
             byteOrderLabel.style.display = 'block';
             if (!recommendedOptions[dataType].includes(byteOrder)) {
-                byteOrderWarning.textContent = `⚠️ ${byteOrder} is not recommended for ${dataType}. Recommended: ${recommendedOptions[dataType].join(', ')}`;
+                byteOrderWarning.textContent = `${byteOrder} is not recommended for ${dataType}. Recommended: ${recommendedOptions[dataType].join(', ')}`;
             } else {
                 byteOrderWarning.textContent = '';
             }
@@ -172,8 +172,8 @@ function renderInfluxDBs() {
             <td class="p-3">${db.organization}</td>
             <td class="p-3">${db.bucket}</td>
             <td class="p-3 flex space-x-2">
-                <button type="button" onclick="editInfluxDB(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md">✏️</button>
-                <button type="button" onclick="deleteInfluxDB(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md">❌</button>
+                <button type="button" onclick="editInfluxDB(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                <button type="button" onclick="deleteInfluxDB(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
             </td>
         `;
         influxTable.appendChild(row);
@@ -319,7 +319,7 @@ window.deleteInfluxDB = (index) => {
 
     function renderConfigs() {
         if (typeof axios === 'undefined') {
-            testOutput.textContent = '❌ Error: Axios is not loaded';
+            testOutput.textContent = 'Error: Axios is not loaded';
             return;
         }
         axios.get('/configs').then(res => {
@@ -381,7 +381,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
 
                     actionsCell.appendChild(startBtn);
                     actionsCell.appendChild(stopBtn);
-                    actionsCell.appendChild(editBtn);  // 👈 Add this
+                    actionsCell.appendChild(editBtn);  // Add this
                     actionsCell.appendChild(deleteBtn);
                     actionsCell.appendChild(testBtn);
                     actionsCell.appendChild(downloadBtn);
@@ -397,7 +397,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
                     });
                     startBtn.addEventListener('click', () => startService(name));
                     stopBtn.addEventListener('click', () => stopService(name));
-                    editBtn.addEventListener('click', () => loadConfig(name));  // 👈 ADD THIS
+                    editBtn.addEventListener('click', () => loadConfig(name));  // ADD THIS
                     deleteBtn.addEventListener('click', () => deleteConfig(name));
                     testBtn.addEventListener('click', () => testConfig(name));
                     downloadBtn.addEventListener('click', () => downloadConfig(name));
@@ -406,16 +406,16 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
                     configList.appendChild(row);
                 });
             }).catch(err => {
-                testOutput.textContent = `❌ Error rendering configurations: ${err.response?.data?.error || err.message}`;
+                testOutput.textContent = `Error rendering configurations: ${err.response?.data?.error || err.message}`;
             });
         }).catch(err => {
-            testOutput.textContent = `❌ Error loading configurations: ${err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Error loading configurations: ${err.response?.data?.error || err.message}`;
         });
     }
 
     function updateStatuses() {
         if (typeof axios === 'undefined') {
-            testOutput.textContent = '❌ Error: Axios is not loaded';
+            testOutput.textContent = 'Error: Axios is not loaded';
             return;
         }
 
@@ -472,8 +472,8 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
                 <td class="p-3">${isBinaryType ? '-' : reg.data_type}</td>
                 <td class="p-3">${isBinaryType ? '-' : reg.scale}</td>
                 <td class="p-3 flex space-x-2">
-                    <button type="button" onclick="editRegister(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105">✏️</button>
-                    <button type="button" onclick="deleteRegister(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105">❌</button>
+                    <button type="button" onclick="editRegister(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                    <button type="button" onclick="deleteRegister(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
                 </td>
             `;
             registersTable.appendChild(row);
@@ -489,8 +489,8 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
                 <td class="p-3">${field.oid}</td>
                 <td class="p-3">${field.is_tag ? 'Yes' : 'No'}</td>
                 <td class="p-3 flex space-x-2">
-                    <button type="button" onclick="editField(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105">✏️</button>
-                    <button type="button" onclick="deleteField(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105">❌</button>
+                    <button type="button" onclick="editField(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                    <button type="button" onclick="deleteField(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
                 </td>
             `;
             fieldsTable.appendChild(row);
@@ -505,8 +505,8 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
                 <td class="p-3">${tag.label}</td>
                 <td class="p-3">${tag.value}</td>
                 <td class="p-3 flex space-x-2">
-                    <button type="button" onclick="editTag(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105">✏️</button>
-                    <button type="button" onclick="deleteTag(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105">❌</button>
+                    <button type="button" onclick="editTag(${index})" class="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                    <button type="button" onclick="deleteTag(${index})" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition transform hover:scale-105"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
                 </td>
             `;
             tagsTable.appendChild(row);
@@ -522,7 +522,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const regScale = document.getElementById('regScale');
 
         if (!registerType || !regName || !regAddress || !byteOrder || !dataType || !regScale) {
-            testOutput.textContent = '❌ Error: Register form elements not found';
+            testOutput.textContent = 'Error: Register form elements not found';
             return;
         }
 
@@ -539,12 +539,12 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         }
         const errors = validateRegister(reg);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
         currentRegisters.push(reg);
         renderRegisters();
-        testOutput.textContent = '✅ Register added';
+        testOutput.textContent = 'Register added';
         resetRegisterForm();
     };
 
@@ -558,7 +558,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const editingIndex = parseInt(editingRegisterIndexInput.value);
 
         if (!registerType || !regName || !regAddress || !byteOrder || !dataType || !regScale) {
-            testOutput.textContent = '❌ Error: Register form elements not found';
+            testOutput.textContent = 'Error: Register form elements not found';
             return;
         }
 
@@ -575,13 +575,13 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         }
         const errors = validateRegister(reg);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
 
         currentRegisters[editingIndex] = reg;
         renderRegisters();
-        testOutput.textContent = '✅ Register updated';
+        testOutput.textContent = 'Register updated';
         resetRegisterForm();
     };
 
@@ -608,7 +608,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
     window.deleteRegister = (index) => {
         currentRegisters.splice(index, 1);
         renderRegisters();
-        testOutput.textContent = '✅ Register deleted';
+        testOutput.textContent = 'Register deleted';
     };
 
     window.editRegister = (index) => {
@@ -640,7 +640,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const fieldIsTag = document.getElementById('fieldIsTag');
 
         if (!fieldName || !fieldOid || !fieldIsTag) {
-            testOutput.textContent = '❌ Error: SNMP field form elements not found';
+            testOutput.textContent = 'Error: SNMP field form elements not found';
             return;
         }
 
@@ -651,12 +651,12 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         };
         const errors = validateField(field, -1);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
         currentFields.push(field);
         renderFields();
-        testOutput.textContent = '✅ Field added';
+        testOutput.textContent = 'Field added';
         resetFieldForm();
     };
 
@@ -667,7 +667,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const editingIndex = parseInt(editingFieldIndexInput.value);
 
         if (!fieldName || !fieldOid || !fieldIsTag) {
-            testOutput.textContent = '❌ Error: SNMP field form elements not found';
+            testOutput.textContent = 'Error: SNMP field form elements not found';
             return;
         }
 
@@ -678,13 +678,13 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         };
         const errors = validateField(field, editingIndex);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
 
         currentFields[editingIndex] = field;
         renderFields();
-        testOutput.textContent = '✅ Field updated';
+        testOutput.textContent = 'Field updated';
         resetFieldForm();
     };
 
@@ -704,7 +704,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
     window.deleteField = (index) => {
         currentFields.splice(index, 1);
         renderFields();
-        testOutput.textContent = '✅ Field deleted';
+        testOutput.textContent = 'Field deleted';
     };
 
     window.editField = (index) => {
@@ -726,7 +726,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const tagValue = document.getElementById('tagValue');
 
         if (!tagLabel || !tagValue) {
-            testOutput.textContent = '❌ Error: Tag form elements not found';
+            testOutput.textContent = 'Error: Tag form elements not found';
             return;
         }
 
@@ -736,12 +736,12 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         };
         const errors = validateTag(tag, -1);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
         currentTags.push(tag);
         renderTags();
-        testOutput.textContent = '✅ Tag added';
+        testOutput.textContent = 'Tag added';
         resetTagForm();
     };
 
@@ -751,7 +751,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         const editingIndex = parseInt(editingTagIndexInput.value);
 
         if (!tagLabel || !tagValue) {
-            testOutput.textContent = '❌ Error: Tag form elements not found';
+            testOutput.textContent = 'Error: Tag form elements not found';
             return;
         }
 
@@ -761,13 +761,13 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         };
         const errors = validateTag(tag, editingIndex);
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
 
         currentTags[editingIndex] = tag;
         renderTags();
-        testOutput.textContent = '✅ Tag updated';
+        testOutput.textContent = 'Tag updated';
         resetTagForm();
     };
 
@@ -785,7 +785,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
     window.deleteTag = (index) => {
         currentTags.splice(index, 1);
         renderTags();
-        testOutput.textContent = '✅ Tag deleted';
+        testOutput.textContent = 'Tag deleted';
     };
 
     window.editTag = (index) => {
@@ -816,7 +816,7 @@ duplicateBtn.className = 'bg-purple-600 text-white px-3 py-1 rounded-md hover:bg
         cancelEditBtn.style.display = 'none';
         deviceNameInput.disabled = false;
         toggleProtocolFields(configForm.protocol.value);
-        testOutput.textContent = '✅ Edit cancelled';
+        testOutput.textContent = 'Edit cancelled';
        
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -876,9 +876,9 @@ renderInfluxDBs(); // This draws the table with the loaded data
             editingConfigNameInput.value = name;
             cancelEditBtn.style.display = 'inline-block';
             deviceNameInput.disabled = true;
-            testOutput.textContent = `✅ Loaded configuration: ${name}.conf`;
+            testOutput.textContent = `Loaded configuration: ${name}.conf`;
         }).catch(err => {
-            testOutput.textContent = `❌ Error loading configuration: ${err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Error loading configuration: ${err.response?.data?.error || err.message}`;
         });
     }
 
@@ -891,16 +891,16 @@ renderInfluxDBs(); // This draws the table with the loaded data
                 });
                 renderConfigs();
             }).catch(err => {
-                testOutput.textContent = `❌ Error deleting configuration: ${err.response?.data?.error || err.message}`;
+                testOutput.textContent = `Error deleting configuration: ${err.response?.data?.error || err.message}`;
             });
         }
     }
 
     function testConfig(name) {
         axios.get(`/test_config/${name}`).then(res => {
-            testOutput.textContent = `✅ Test ${res.data.status}: ${res.data.output}`;
+            testOutput.textContent = `Test ${res.data.status}: ${res.data.output}`;
         }).catch(err => {
-            testOutput.textContent = `❌ Test failed: ${err.response?.data?.output || err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Test failed: ${err.response?.data?.output || err.response?.data?.error || err.message}`;
         });
     }
 
@@ -917,23 +917,23 @@ renderInfluxDBs(); // This draws the table with the loaded data
     }
 
     if (!newName.trim()) {
-        testOutput.textContent = '❌ Configuration name cannot be empty';
+        testOutput.textContent = 'Configuration name cannot be empty';
         return;
     }
 
     // Check if name already exists
     if (existingConfigNames.includes(newName)) {
-        testOutput.textContent = '❌ Configuration name already exists';
+        testOutput.textContent = 'Configuration name already exists';
         return;
     }
 
     axios.post(`/duplicate_config/${name}`, { new_name: newName })
         .then(res => {
-            testOutput.textContent = `✅ ${res.data.message}`;
+            testOutput.textContent = `${res.data.message}`;
             renderConfigs(); // Refresh the list
         })
         .catch(err => {
-            testOutput.textContent = `❌ Error duplicating: ${err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Error duplicating: ${err.response?.data?.error || err.message}`;
         });
 }
 
@@ -941,23 +941,23 @@ renderInfluxDBs(); // This draws the table with the loaded data
 
     window.startService = (name) => {
         axios.post(`/start_service/${name}`).then(res => {
-            testOutput.textContent = `✅ Started communication service for ${name}.conf`;
+            testOutput.textContent = `Started communication service for ${name}.conf`;
             updateStatuses();
             setTimeout(() => {
                 updateStatuses();
             }, 2000);
         }).catch(err => {
-            testOutput.textContent = `❌ Error starting service for ${name}.conf: ${err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Error starting service for ${name}.conf: ${err.response?.data?.error || err.message}`;
             updateStatuses();
         });
     };
 
     window.stopService = (name) => {
         axios.post(`/stop_service/${name}`).then(res => {
-            testOutput.textContent = `✅ Stopped communication service for ${name}.conf`;
+            testOutput.textContent = `Stopped communication service for ${name}.conf`;
             updateStatuses();
         }).catch(err => {
-            testOutput.textContent = `❌ Error stopping service for ${name}.conf: ${err.response?.data?.error || err.message}`;
+            testOutput.textContent = `Error stopping service for ${name}.conf: ${err.response?.data?.error || err.message}`;
             updateStatuses();
         });
     };
@@ -965,14 +965,14 @@ renderInfluxDBs(); // This draws the table with the loaded data
     document.getElementById('saveConfigBtn').addEventListener('click', () => {
         const errors = validateForm();
         if (errors.length > 0) {
-            testOutput.textContent = `❌ ${errors.join('; ')}`;
+            testOutput.textContent = `${errors.join('; ')}`;
             return;
         }
 
         const editingConfigName = editingConfigNameInput.value;
         const name = editingConfigName || configForm.name.value;
         if (!editingConfigName && existingConfigNames.includes(name)) {
-            testOutput.textContent = '❌ Configuration name already exists';
+            testOutput.textContent = 'Configuration name already exists';
             return;
         }
 
@@ -992,7 +992,7 @@ renderInfluxDBs(); // This draws the table with the loaded data
         };
 
         if (data.protocol === 'tcp') {
-            data.host = document.querySelector('#tcpFields input[name="host"]').value;  // ✅ Specific
+            data.host = document.querySelector('#tcpFields input[name="host"]').value;  // Specific
             data.port = parseInt(document.querySelector('#tcpFields input[name="port"]').value);
             data.slave_id = parseInt(configForm.slave_id.value);
         } else if (data.protocol === 'rtu') {
@@ -1013,14 +1013,14 @@ renderInfluxDBs(); // This draws the table with the loaded data
         axios.post(`/test_config_from_data`, data).then(res => {
             // Display test result
             if (res.data.status === 'success') {
-                testOutput.textContent = `✅ Test passed: ${res.data.output}`;
+                testOutput.textContent = `Test passed: ${res.data.output}`;
             } else {
-                testOutput.textContent = `❌ Test failed: ${res.data.output}${res.data.warning ? `\n⚠️ ${res.data.warning}` : ''}`;
+                testOutput.textContent = `Test failed: ${res.data.output}${res.data.warning ? `\n${res.data.warning}` : ''}`;
             }
 
             // Proceed to save the configuration regardless of test result
             axios.post(`/config/${name}`, data).then(saveRes => {
-                testOutput.textContent += `\n✅ Configuration saved: ${saveRes.data.message}`;
+                testOutput.textContent += `\nConfiguration saved: ${saveRes.data.message}`;
                 renderConfigs();
                 if (!editingConfigName) {
                     configForm.reset();
@@ -1036,14 +1036,14 @@ renderInfluxDBs(); // This draws the table with the loaded data
                 cancelEditBtn.style.display = 'none';
                 deviceNameInput.disabled = false;
             }).catch(saveErr => {
-                testOutput.textContent += `\n❌ Error saving configuration: ${saveErr.response?.data?.error || saveErr.message}`;
+                testOutput.textContent += `\nError saving configuration: ${saveErr.response?.data?.error || saveErr.message}`;
             });
         }).catch(testErr => {
-            testOutput.textContent = `❌ Test failed: ${testErr.response?.data?.error || testErr.message}`;
+            testOutput.textContent = `Test failed: ${testErr.response?.data?.error || testErr.message}`;
 
             // Proceed to save the configuration even if the test fails
             axios.post(`/config/${name}`, data).then(saveRes => {
-                testOutput.textContent += `\n✅ Configuration saved: ${saveRes.data.message}`;
+                testOutput.textContent += `\nConfiguration saved: ${saveRes.data.message}`;
                 renderConfigs();
                 if (!editingConfigName) {
                     configForm.reset();
@@ -1059,7 +1059,7 @@ renderInfluxDBs(); // This draws the table with the loaded data
                 cancelEditBtn.style.display = 'none';
                 deviceNameInput.disabled = false;
             }).catch(saveErr => {
-                testOutput.textContent += `\n❌ Error saving configuration: ${saveErr.response?.data?.error || saveErr.message}`;
+                testOutput.textContent += `\nError saving configuration: ${saveErr.response?.data?.error || saveErr.message}`;
             });
         });
     });
@@ -1099,10 +1099,12 @@ renderInfluxDBs(); // This draws the table with the loaded data
     document.getElementById('byteOrder').addEventListener('change', updateByteOrderWarning);
 
     const themeToggle = document.getElementById('themeToggle');
+if (localStorage.getItem('darkMode') === 'false') document.body.classList.remove('dark');
 
 if (themeToggle) {
     themeToggle.addEventListener('click', () => {
         document.body.classList.toggle('dark');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark'));
     });
 }
 
