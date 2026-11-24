@@ -17,6 +17,10 @@
             Looking for a license on the USB…
         </div>
         <div id="licenseDetails" class="mt-4 hidden rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"></div>
+        <details id="diagnosticSection" class="mt-4 hidden rounded-lg border border-slate-200 p-3 text-xs">
+            <summary class="cursor-pointer font-semibold">USB license data read by the controller</summary>
+            <pre id="diagnosticData" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap"></pre>
+        </details>
         <button id="retry" type="button" class="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60">
             Check USB license
         </button>
@@ -26,7 +30,15 @@
         const state = document.getElementById('state');
         const retry = document.getElementById('retry');
         const details = document.getElementById('licenseDetails');
+        const diagnosticSection = document.getElementById('diagnosticSection');
+        const diagnosticData = document.getElementById('diagnosticData');
         let retryTimer = null;
+
+        function showDiagnostics(value) {
+            if (!value) return;
+            diagnosticData.textContent = JSON.stringify(value, null, 2);
+            diagnosticSection.classList.remove('hidden');
+        }
 
         async function readJson(response) {
             const contentType = response.headers.get('content-type') || '';
@@ -56,6 +68,7 @@
 
                 const statusResponse = await fetch('/api/usb/status', { cache: 'no-store' });
                 const usbStatus = await readJson(statusResponse);
+                showDiagnostics(usbStatus.diagnostics);
                 state.textContent = usbStatus.message;
                 if (usbStatus.state !== 'ready') {
                     retrySoon();
@@ -69,6 +82,7 @@
                 });
                 const result = await readJson(response);
                 if (!response.ok) throw new Error(result.error || 'License installation failed.');
+                showDiagnostics(result.diagnostics);
                 state.textContent = result.message;
                 details.textContent = `License ${result.license.license_id || ''} · up to ${result.license.max_devices} devices. Saved to ${result.saved_to}. Opening dashboard…`;
                 details.classList.remove('hidden');

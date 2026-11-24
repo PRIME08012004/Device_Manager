@@ -14,6 +14,7 @@ import threading
 import time
 import base64
 import binascii
+import hashlib
 import platform
 import tempfile
 from pathlib import Path
@@ -52,15 +53,24 @@ LICENSE_PATH = os.environ.get(
     'NEU_LICENSE_PATH',
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'license.json'),
 )
-# Temporary rollout switch: set NEU_LICENSE_REQUIRED=true to enable gating/limits.
-LICENSE_ENFORCEMENT_ENABLED = os.environ.get('NEU_LICENSE_REQUIRED', 'false').lower() in ('1', 'true', 'yes')
+# A valid installed USB license is required before application features are served.
+LICENSE_ENFORCEMENT_ENABLED = True
 USB_DIR_NAME = 'NEU159_USB'
-MOUNT_POINT = '/mnt/neu159_usb'
 MAX_LICENSE_BYTES = 100_000
 NAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,40}$')
-# The previous public key is retired because its private counterpart was exposed.
-# Replace this placeholder with the newly rotated issuer public key before activation.
-PUBLIC_KEY_PEM = 'REPLACE_WITH_ROTATED_RSA_3072_PUBLIC_KEY'
+_USB_SCAN_LOCK = threading.Lock()
+# The previous public key was retired because its private counterpart was exposed.
+PUBLIC_KEY_PEM = '''-----BEGIN PUBLIC KEY-----
+MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA8LigMfrW/2uGR1H42dWv
+JFx4mJ41Bs1GKBnd0QZnAGoMv1PrY2af87XQKIS2s4fGDEhcdLFYyFumYLWcTPYz
+Lc3nMCUHFQxAs/rRPmEUWCHomgEYi6phqwHLI2dZFjJsBf2dRK1guu5++4dF4uO6
+WIxDSxxRZ/Axy6GkrhFcfwrBu16S2j2zAb2GNx9sAwf1Ebw2eBrbtWqVwSu3Utba
+b9NJBZLJDAV30yg2SbDS89PZwqqcTsSQ4n1SxSThjGvkgvFLiP06pcnnytuMQZG7
+m2GBU0NMS/L1Ps6KP40H/K4B0QYbPjQsZMXGzrcrq+b3e3PTlG8r2zxsHr9awzLC
+uugFq+tYjeDLg02lDtbGyqyyCMSj693H34j+xiCXY0SowwDYbOmEcb91lCt6V46s
+hMADXYfyrdnk2QPm+1PXp+/px1cJlQoUNWSiPvW+R0n3hdWeQ4kPvnKV4J+0hjNZ
+o4SqWYAQh7K8+wHSeKhmHxiQi8/b3v6rWtDyzDnCEbDnAgMBAAE=
+-----END PUBLIC KEY-----'''
 
 
 def machine_id() -> str:
@@ -80,8 +90,6 @@ def machine_id_enforcement_enabled() -> bool:
 
 def verify_doc(doc: dict) -> dict:
     """Verify the signed license document and its controller-specific claims."""
-    if 'REPLACE_WITH_ROTATED_RSA_3072_PUBLIC_KEY' in PUBLIC_KEY_PEM:
-        raise ValueError('Issuer public key has been retired; install the rotated public key in app.py.')
     if not isinstance(doc, dict):
         raise ValueError('License document must be a JSON object.')
     missing = {'license', 'signature'} - set(doc)
@@ -225,9 +233,10 @@ def can_add(name: str) -> tuple:
 
 
 class USBStatusError(Exception):
-    def __init__(self, state: str, message: str):
+    def __init__(self, state: str, message: str, diagnostics: dict = None):
         super().__init__(message)
         self.state = state
+        self.diagnostics = diagnostics
 
 
 def _lsblk_devices() -> list:
@@ -288,7 +297,7 @@ def _neu_usb_folder(mountpoint: str):
 
 
 @contextmanager
-def usb_license_folder(writable: bool = False):
+def _usb_license_folder(writable: bool = False):
     """Find NEU159_USB on removable storage and temporarily mount if required."""
     try:
         devices = _lsblk_devices()
@@ -310,34 +319,46 @@ def usb_license_folder(writable: bool = False):
     for device in devices:
         if device['mountpoints']:
             continue
-        if os.path.ismount(MOUNT_POINT):
-            mount_errors.append(f'{MOUNT_POINT} is already in use.')
-            continue
-        os.makedirs(MOUNT_POINT, exist_ok=True)
-        options = 'rw,nosuid,nodev,noexec' if writable else 'ro,nosuid,nodev,noexec'
-        mounted = subprocess.run(
-            ['mount', '-o', options, device['path'], MOUNT_POINT],
-            capture_output=True, text=True, timeout=15
-        )
-        if mounted.returncode:
-            mount_errors.append(mounted.stderr.strip() or f"Could not mount {device['path']}.")
-            continue
-        saw_mounted_device = True
+        mountpoint = tempfile.mkdtemp(prefix='neu159-usb-')
+        mounted_ok = False
         try:
-            folder = _neu_usb_folder(MOUNT_POINT)
+            options = 'rw,nosuid,nodev,noexec' if writable else 'ro,nosuid,nodev,noexec'
+            mounted = subprocess.run(
+                ['mount', '-o', options, device['path'], mountpoint],
+                capture_output=True, text=True, timeout=15
+            )
+            if mounted.returncode:
+                mount_errors.append(mounted.stderr.strip() or f"Could not mount {device['path']}.")
+                continue
+            mounted_ok = True
+            saw_mounted_device = True
+            folder = _neu_usb_folder(mountpoint)
             if folder:
                 yield folder
                 return
         finally:
-            if writable:
-                subprocess.run(['sync'], capture_output=True, text=True, timeout=10)
-            subprocess.run(['umount', MOUNT_POINT], capture_output=True, text=True, timeout=15)
+            if mounted_ok:
+                if writable:
+                    subprocess.run(['sync'], capture_output=True, text=True, timeout=10)
+                subprocess.run(['umount', mountpoint], capture_output=True, text=True, timeout=15)
+            try:
+                os.rmdir(mountpoint)
+            except OSError:
+                pass
 
     if mount_errors:
         raise USBStatusError('mount_failed', '; '.join(mount_errors))
     if saw_mounted_device:
         raise USBStatusError('no_folder', f'No {USB_DIR_NAME} folder was found at a removable drive root.')
     raise USBStatusError('no_device', 'No mounted or mountable removable USB storage was found.')
+
+
+@contextmanager
+def usb_license_folder(writable: bool = False):
+    """Serialize USB scans and mount each unmounted device at a private path."""
+    with _USB_SCAN_LOCK:
+        with _usb_license_folder(writable=writable) as folder:
+            yield folder
 
 
 def _license_arch() -> str:
@@ -366,6 +387,51 @@ def _parse_license_json(raw: str) -> dict:
     if isinstance(document, dict) and isinstance(document.get('signature'), str):
         document['signature'] = re.sub(r'[\s\\]+', '', document['signature'])
     return document
+
+
+def _license_diagnostics(document: dict) -> dict:
+    """Return license payload/signature metadata without exposing signature bytes."""
+    if not isinstance(document, dict):
+        return {'document_type': type(document).__name__}
+    license_data = document.get('license')
+    diagnostics = {
+        'top_level_keys': sorted(str(key) for key in document),
+        'license': license_data if isinstance(license_data, dict) else None,
+    }
+    signature = document.get('signature')
+    if isinstance(license_data, dict):
+        canonical_payload = json.dumps(
+            license_data, sort_keys=True, separators=(',', ':')
+        ).encode('utf-8')
+        diagnostics['canonical_payload_sha256'] = hashlib.sha256(canonical_payload).hexdigest()
+    try:
+        issuer_public_key = serialization.load_pem_public_key(PUBLIC_KEY_PEM.encode('ascii'))
+        issuer_public_der = issuer_public_key.public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        diagnostics['issuer_public_key_sha256'] = hashlib.sha256(issuer_public_der).hexdigest()
+    except Exception:
+        diagnostics['issuer_public_key_sha256'] = None
+    if not isinstance(signature, str):
+        diagnostics['signature'] = {'present': False, 'type': type(signature).__name__}
+        return diagnostics
+
+    normalized_signature = re.sub(r'[\s\\]+', '', signature)
+    signature_info = {
+        'present': True,
+        'format': 'pem_key' if 'PRIVATE KEY' in signature or '-----BEGIN' in signature else 'unknown',
+        'characters': len(normalized_signature),
+    }
+    if signature_info['format'] != 'pem_key':
+        try:
+            decoded = base64.b64decode(normalized_signature, validate=True)
+            signature_info['format'] = 'base64'
+            signature_info['decoded_bytes'] = len(decoded)
+        except (binascii.Error, ValueError):
+            signature_info['format'] = 'invalid_base64'
+    diagnostics['signature'] = signature_info
+    return diagnostics
 
 
 def _read_usb_license(folder: str) -> dict:
@@ -405,7 +471,8 @@ def _read_usb_license(folder: str) -> dict:
             if isinstance(document, dict) and isinstance(document.get('license'), dict):
                 if machine_id_enforcement_enabled() and document['license'].get('machine_id') != machine_id():
                     message += ' Its machine ID does not match this controller.'
-            raise USBStatusError('no_license', message) from exc
+            diagnostics = _license_diagnostics(document) if isinstance(document, dict) else None
+            raise USBStatusError('no_license', message, diagnostics) from exc
     raise USBStatusError('no_license', f'No license for {_license_arch()} and this controller was found on the USB.')
 
 
@@ -720,7 +787,7 @@ def config():
 
 @app.route('/license')
 def license_activation():
-    return render_template('license.html')
+    return render_template('dashboard.html')
 
 
 @app.route('/dashboard')
@@ -1406,9 +1473,13 @@ def api_usb_status():
         return jsonify({
             'state': 'ready',
             'message': f"Valid license {document['license'].get('license_id', '')} found on USB.",
+            'diagnostics': _license_diagnostics(document),
         })
     except USBStatusError as exc:
-        return jsonify({'state': exc.state, 'message': str(exc)})
+        result = {'state': exc.state, 'message': str(exc)}
+        if exc.diagnostics:
+            result['diagnostics'] = exc.diagnostics
+        return jsonify(result)
     except Exception as exc:
         app.logger.exception('USB license status check failed')
         return jsonify({'state': 'mount_failed', 'message': str(exc)}), 500
@@ -1426,6 +1497,7 @@ def api_usb_install_license():
         return jsonify({
             'message': 'License installed successfully. The USB can now be removed.',
             'saved_to': str(Path(LICENSE_PATH).resolve()),
+            'diagnostics': _license_diagnostics(document),
             'license': {
                 'license_id': license_data.get('license_id'),
                 'license_type': license_data.get('license_type'),
@@ -1433,7 +1505,10 @@ def api_usb_install_license():
             },
         })
     except USBStatusError as exc:
-        return jsonify({'error': str(exc), 'state': exc.state}), 400
+        result = {'error': str(exc), 'state': exc.state}
+        if exc.diagnostics:
+            result['diagnostics'] = exc.diagnostics
+        return jsonify(result), 400
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     except Exception as exc:
@@ -1444,7 +1519,7 @@ def api_usb_install_license():
 @app.before_request
 def require_license_for_application():
     allowed_endpoints = {
-        'static', 'index', 'dashboard', 'dashboard_stats', 'license_activation',
+        'static', 'index', 'dashboard', 'config', 'license_activation',
         'api_license', 'api_usb_status', 'api_usb_install_license',
     }
     if request.endpoint in allowed_endpoints:
@@ -1459,7 +1534,7 @@ def require_license_for_application():
             'message': 'Activate a valid NEU159 license to use this feature.',
         }), 402
     if request.method == 'GET':
-        return render_template('license.html')
+        return render_template('dashboard.html')
     return jsonify({
         'error': 'license_required',
         'message': 'Activate a valid NEU159 license to use this feature.',
