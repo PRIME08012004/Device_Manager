@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ request.script_root }}/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -1180,7 +1180,9 @@
             margin-top: 6px;
         }
     </style>
-    <link rel="stylesheet" href="/static/dark.css">
+    <link rel="stylesheet" href="{{ request.script_root }}/static/dark.css">
+    <script>window.BASE = "{{ request.script_root }}";</script>
+    <script src="{{ request.script_root }}/static/base.js"></script>
 </head>
 
 <body class="dark">
@@ -1188,12 +1190,12 @@
     <!-- NAVBAR -->
     <nav class="navbar">
         <div class="navbar-brand">
-            <img src="/static/logo.png" alt="Neutron">
+            <img src="{{ request.script_root }}/static/logo.png" alt="Neutron">
            <!-- <span>Neutron Automation</span>-->
         </div>
         <div class="navbar-right">
-            <a href="/dashboard">Dashboard</a>
-            <a href="/configuration" class="active">Configuration</a>
+            <a href="{{ request.script_root }}/dashboard">Dashboard</a>
+            <a href="{{ request.script_root }}/configuration" class="active">Configuration</a>
             <button id="themeToggle" title="Toggle theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
         </div>
     </nav>
@@ -1858,7 +1860,7 @@
         </div>
     </div>
    	
-    <script src="/static/config.js"></script>
+    <script src="{{ request.script_root }}/static/config.js"></script>
     <script>
         // ═══════════════════════════════════════════════════════════════════════════
         // THREE-DOT DROPDOWN

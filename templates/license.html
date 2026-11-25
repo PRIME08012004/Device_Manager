@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Activate NEU159 License</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>window.BASE = "{{ request.script_root }}";</script>
+    <script src="{{ request.script_root }}/static/base.js"></script>
 </head>
 <body class="min-h-screen bg-slate-100 flex items-center justify-center p-4 text-slate-800">
     <main class="w-full max-w-lg rounded-xl bg-white p-8 shadow-lg">
@@ -62,7 +64,7 @@
                 const licenseResponse = await fetch('/api/license', { cache: 'no-store' });
                 const license = await readJson(licenseResponse);
                 if (license.valid) {
-                    window.location.replace('/dashboard');
+                    window.location.replace((window.BASE || '') + '/dashboard');
                     return;
                 }
 
@@ -86,7 +88,7 @@
                 state.textContent = result.message;
                 details.textContent = `License ${result.license.license_id || ''} · up to ${result.license.max_devices} devices. Saved to ${result.saved_to}. Opening dashboard…`;
                 details.classList.remove('hidden');
-                window.setTimeout(() => window.location.replace('/dashboard'), 900);
+                window.setTimeout(() => window.location.replace((window.BASE || '') + '/dashboard'), 900);
             } catch (error) {
                 state.textContent = error.message || 'Could not check the USB license.';
                 retrySoon();

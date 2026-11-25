@@ -905,7 +905,7 @@ renderInfluxDBs(); // This draws the table with the loaded data
     }
 
     function downloadConfig(name) {
-        window.location.href = `/download/${name}`;
+        window.location.href = `${window.BASE || ''}/download/${name}`;
     }
 
 

@@ -8,7 +8,9 @@
 
    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-    <link rel="stylesheet" href="/static/dark.css">
+    <link rel="stylesheet" href="{{ request.script_root }}/static/dark.css">
+    <script>window.BASE = "{{ request.script_root }}";</script>
+    <script src="{{ request.script_root }}/static/base.js"></script>
 </head>
 
 <body class="dark bg-gray-100 text-gray-800 font-sans antialiased">
@@ -17,7 +19,7 @@
 <nav class="navbar">
     <div class="nav-container">
         <div class="logo">
-            <img src="/static/logo.png" alt="Neutron Automation">
+            <img src="{{ request.script_root }}/static/logo.png" alt="Neutron Automation">
             <span>Neutron Automation</span>
         </div>
 
@@ -385,6 +387,6 @@
     </div>
 </section>
 
-<script src="/static/script.js"></script>
+<script src="{{ request.script_root }}/static/script.js"></script>
 </body>
 </html>

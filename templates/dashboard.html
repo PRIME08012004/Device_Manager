@@ -5,7 +5,7 @@
     <title>Neutron Automation - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ request.script_root }}/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -103,19 +103,21 @@
         .stat-card.inactive .stat-value { color: var(--danger); }
         .stat-card .stat-icon { font-size: 20px; margin-bottom: 4px; }
     </style>
-    <link rel="stylesheet" href="/static/dark.css">
+    <link rel="stylesheet" href="{{ request.script_root }}/static/dark.css">
+    <script>window.BASE = "{{ request.script_root }}";</script>
+    <script src="{{ request.script_root }}/static/base.js"></script>
 </head>
 <body class="dark">
 
 <!-- NAVBAR -->
 <nav class="navbar">
     <div class="navbar-brand">
-        <img src="/static/logo.png" alt="Neutron">
+        <img src="{{ request.script_root }}/static/logo.png" alt="Neutron">
         <span>Neutron Automation</span>
     </div>
     <div class="navbar-right">
-        <a href="/dashboard" class="active">Dashboard</a>
-        <a href="/configuration">Configuration</a>
+        <a href="{{ request.script_root }}/dashboard" class="active">Dashboard</a>
+        <a href="{{ request.script_root }}/configuration">Configuration</a>
         <button id="themeToggle">🌙</button>
     </div>
 </nav>
@@ -145,7 +147,7 @@
 </div>
 
 {% include 'license_overlay.html' %}
-<script src="/static/dashboard.js"></script>
+<script src="{{ request.script_root }}/static/dashboard.js"></script>
 <script>
     if (localStorage.getItem('darkMode') === 'false') {
         document.body.classList.remove('dark');
