@@ -488,7 +488,6 @@ startLiveDataPolling();
     const influxToken = document.getElementById('influxToken');
     const influxOrg = document.getElementById('influxOrg');
     const influxBucket = document.getElementById('influxBucket');
-    const influxUseLocal = document.getElementById('influxUseLocal');
     const influxBucketOptions = document.getElementById('influxBucketOptions');
     const influxBucketStatus = document.getElementById('influxBucketStatus');
     const loadInfluxBucketsBtn = document.getElementById('loadInfluxBucketsBtn');
@@ -517,16 +516,8 @@ startLiveDataPolling();
     let currentInflux = [];
 
     function influxUrlValue() {
-        return influxUseLocal.checked ? 'http://localhost:8086' : influxUrls.value.trim();
+        return influxUrls.value.trim();
     }
-
-    function toggleInfluxUrl() {
-        influxUrls.disabled = influxUseLocal.checked;
-        if (influxUseLocal.checked) influxUrls.value = 'http://localhost:8086';
-    }
-
-    influxUseLocal.addEventListener('change', toggleInfluxUrl);
-    toggleInfluxUrl();
 
     loadInfluxBucketsBtn.addEventListener('click', async () => {
         const token = influxToken.value.trim();
@@ -932,14 +923,12 @@ startLiveDataPolling();
     let editingInfluxIndex = -1;
 
     function resetInfluxForm() {
-        influxUrls.value = '';
+        influxUrls.value = 'http://localhost:8086';
         influxToken.value = '';
         influxOrg.value = '';
         influxBucket.value = '';
-        influxUseLocal.checked = true;
         influxBucketStatus.textContent = '';
         influxBucketOptions.replaceChildren();
-        toggleInfluxUrl();
         addInfluxBtn.textContent = 'Add InfluxDB';
         editingInfluxIndex = -1;
         addInfluxBtn.onclick = addInflux;
@@ -983,8 +972,6 @@ startLiveDataPolling();
     window.editInflux = (index) => {
         const db = currentInflux[index];
         influxUrls.value = db.url;
-        influxUseLocal.checked = db.url === 'http://localhost:8086';
-        toggleInfluxUrl();
         influxToken.value = db.token;
         influxOrg.value = db.org;
         influxBucket.value = db.bucket;
