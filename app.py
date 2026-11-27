@@ -28,7 +28,28 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.exceptions import InvalidSignature
 
 from werkzeug.middleware.proxy_fix import ProxyFix
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv():
+        """Load simple KEY=VALUE entries when python-dotenv is unavailable."""
+        env_file = Path(__file__).with_name('.env')
+        if not env_file.is_file():
+            return
+        for raw_line in env_file.read_text(encoding='utf-8').splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if line.startswith('export '):
+                line = line[7:].lstrip()
+            key, separator, value = line.partition('=')
+            if not separator or not key.strip():
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            os.environ.setdefault(key.strip(), value)
 
 load_dotenv()
 
