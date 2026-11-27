@@ -1718,14 +1718,29 @@
                     <div class="form-section">
                         <div class="form-section-title">InfluxDB v2 Output</div>
                         <div class="form-grid">
-                            <div class="fg"><label for="influxUrls">URL</label><input type="text" id="influxUrls"
-                                    value="http://localhost:8086"></div>
-                            <div class="fg"><label for="influxToken">Token</label><input type="text" id="influxToken">
+                            <div class="fg">
+                                <label for="influxUseLocal">Connection URL</label>
+                                <label style="display:flex;align-items:center;gap:8px;font-weight:400;">
+                                    <input type="checkbox" id="influxUseLocal" checked>
+                                    Use local InfluxDB (http://localhost:8086)
+                                </label>
+                                <input type="text" id="influxUrls" value="http://localhost:8086"
+                                    placeholder="http://localhost:8086" style="display:none;margin-top:8px;">
+                            </div>
+                            <div class="fg"><label for="influxToken">Token</label><input type="password" id="influxToken"
+                                    autocomplete="off">
+                                <small style="display:block;margin-top:6px;color:var(--text2);">InfluxDB does not reveal an existing token's secret. Paste a token created in InfluxDB.</small>
                             </div>
                             <div class="fg"><label for="influxOrg">Organization</label><input type="text"
                                     id="influxOrg"></div>
                             <div class="fg"><label for="influxBucket">Bucket</label><input type="text"
-                                    id="influxBucket"></div>
+                                    id="influxBucket" list="influxBucketOptions" autocomplete="off">
+                                <datalist id="influxBucketOptions"></datalist>
+                            </div>
+                            <div class="fg"><label>&nbsp;</label><button type="button" id="loadInfluxBucketsBtn"
+                                    class="btn-add">Load buckets</button>
+                                <small id="influxBucketStatus" style="display:block;margin-top:6px;color:var(--text2);"></small>
+                            </div>
                             <div class="fg"><label>&nbsp;</label><button type="button" id="addInfluxBtn"
                                     class="btn-add">+ Add InfluxDB</button></div>
                         </div>

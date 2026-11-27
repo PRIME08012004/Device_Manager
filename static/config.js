@@ -488,6 +488,10 @@ startLiveDataPolling();
     const influxToken = document.getElementById('influxToken');
     const influxOrg = document.getElementById('influxOrg');
     const influxBucket = document.getElementById('influxBucket');
+    const influxUseLocal = document.getElementById('influxUseLocal');
+    const influxBucketOptions = document.getElementById('influxBucketOptions');
+    const influxBucketStatus = document.getElementById('influxBucketStatus');
+    const loadInfluxBucketsBtn = document.getElementById('loadInfluxBucketsBtn');
     const modbusRegistersSection = document.getElementById('modbusRegistersSection');
     const snmpFieldsSection = document.getElementById('snmpFieldsSection');
 
@@ -511,6 +515,48 @@ startLiveDataPolling();
     let currentFields = [];
     let currentTags = [];
     let currentInflux = [];
+
+    function influxUrlValue() {
+        return influxUseLocal.checked ? 'http://localhost:8086' : influxUrls.value.trim();
+    }
+
+    function toggleInfluxUrl() {
+        influxUrls.style.display = influxUseLocal.checked ? 'none' : '';
+        if (influxUseLocal.checked) influxUrls.value = 'http://localhost:8086';
+    }
+
+    influxUseLocal.addEventListener('change', toggleInfluxUrl);
+    toggleInfluxUrl();
+
+    loadInfluxBucketsBtn.addEventListener('click', async () => {
+        const token = influxToken.value.trim();
+        const organization = influxOrg.value.trim();
+        if (!token || !organization) {
+            influxBucketStatus.textContent = 'Enter a token and organization first.';
+            return;
+        }
+        loadInfluxBucketsBtn.disabled = true;
+        influxBucketStatus.textContent = 'Loading buckets…';
+        influxBucketOptions.replaceChildren();
+        try {
+            const response = await axios.post('/api/influx/buckets', {
+                url: influxUrlValue(), token, organization
+            });
+            const buckets = response.data.buckets || [];
+            buckets.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                influxBucketOptions.appendChild(option);
+            });
+            influxBucketStatus.textContent = buckets.length
+                ? `Loaded ${buckets.length} bucket${buckets.length === 1 ? '' : 's'}. Select or type a bucket.`
+                : 'No buckets found for this organization.';
+        } catch (error) {
+            influxBucketStatus.textContent = error.response?.data?.error || 'Could not load buckets. Check the connection and credentials.';
+        } finally {
+            loadInfluxBucketsBtn.disabled = false;
+        }
+    });
 
     // =========================================================
     // REGISTER FIELD VISIBILITY
@@ -890,6 +936,10 @@ startLiveDataPolling();
         influxToken.value = '';
         influxOrg.value = '';
         influxBucket.value = '';
+        influxUseLocal.checked = true;
+        influxBucketStatus.textContent = '';
+        influxBucketOptions.replaceChildren();
+        toggleInfluxUrl();
         addInfluxBtn.textContent = 'Add InfluxDB';
         editingInfluxIndex = -1;
         addInfluxBtn.onclick = addInflux;
@@ -903,7 +953,7 @@ startLiveDataPolling();
             const row = document.createElement('tr');
             row.innerHTML = `
             <td class="p-3">${db.url}</td>
-            <td class="p-3">${db.token}</td>
+            <td class="p-3" aria-label="Token saved">••••••••</td>
             <td class="p-3">${db.org}</td>
             <td class="p-3">${db.bucket}</td>
             <td class="p-3 flex space-x-2">
@@ -915,7 +965,7 @@ startLiveDataPolling();
     }
 
     function addInflux() {
-        const url = influxUrls.value.trim(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
+        const url = influxUrlValue(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
         if (!url || !token || !org || !bucket) { alert('All fields are required'); return; }
         currentInflux.push({ url, token, org, bucket });
         renderInflux();
@@ -923,7 +973,7 @@ startLiveDataPolling();
     }
 
     function updateInflux() {
-        const url = influxUrls.value.trim(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
+        const url = influxUrlValue(), token = influxToken.value.trim(), org = influxOrg.value.trim(), bucket = influxBucket.value.trim();
         if (!url || !token || !org || !bucket) { alert('All fields are required'); return; }
         currentInflux[editingInfluxIndex] = { url, token, org, bucket };
         renderInflux();
@@ -933,6 +983,8 @@ startLiveDataPolling();
     window.editInflux = (index) => {
         const db = currentInflux[index];
         influxUrls.value = db.url;
+        influxUseLocal.checked = db.url === 'http://localhost:8086';
+        toggleInfluxUrl();
         influxToken.value = db.token;
         influxOrg.value = db.org;
         influxBucket.value = db.bucket;

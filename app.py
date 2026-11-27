@@ -17,6 +17,9 @@ import binascii
 import hashlib
 import platform
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -805,6 +808,42 @@ def list_configs():
         return jsonify(configs)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/influx/buckets', methods=['POST'])
+def influx_buckets():
+    """Fetch bucket names from InfluxDB without storing the supplied token."""
+    data = request.get_json(silent=True) or {}
+    url = str(data.get('url', 'http://localhost:8086')).strip().rstrip('/')
+    token = str(data.get('token', '')).strip()
+    organization = str(data.get('organization', '')).strip()
+    if not token or not organization:
+        return jsonify({'error': 'Token and organization are required'}), 400
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme not in ('http', 'https') or not parsed_url.netloc:
+        return jsonify({'error': 'Enter a valid InfluxDB URL'}), 400
+
+    query = urllib.parse.urlencode({'org': organization})
+    endpoint = f'{url}/api/v2/buckets?{query}'
+    api_request = urllib.request.Request(endpoint, headers={
+        'Authorization': f'Token {token}',
+        'Accept': 'application/json',
+    })
+    try:
+        with urllib.request.urlopen(api_request, timeout=8) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+        buckets = [bucket.get('name') for bucket in payload.get('buckets', []) if bucket.get('name')]
+        return jsonify({'buckets': buckets})
+    except urllib.error.HTTPError as error:
+        message = 'InfluxDB rejected the request. Check the token and organization.'
+        try:
+            details = json.loads(error.read().decode('utf-8'))
+            message = details.get('message') or details.get('error') or message
+        except (ValueError, UnicodeDecodeError):
+            pass
+        return jsonify({'error': message}), error.code
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as error:
+        return jsonify({'error': f'Could not reach InfluxDB: {error}'}), 502
 
 
 @app.route('/config/<name>', methods=['GET'])
