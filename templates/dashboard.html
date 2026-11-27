@@ -144,25 +144,6 @@
         </div>
     </div>
 
-    <section class="stat-card" style="margin-top:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
-            <div>
-                <div class="page-title" style="font-size:15px;margin:0;">InfluxDB · PDU readings</div>
-                <div id="influxDashboardStatus" class="page-subtitle" style="margin:4px 0 0;">Loading InfluxDB data…</div>
-            </div>
-            <button type="button" id="refreshInfluxDashboard" class="btn-action primary">Refresh</button>
-        </div>
-        <div style="overflow-x:auto;">
-            <table class="data-table" style="width:100%;">
-                <thead>
-                    <tr><th>Time</th><th>Measurement</th><th>Field</th><th>Value</th></tr>
-                </thead>
-                <tbody id="influxDashboardRows">
-                    <tr><td colspan="4" style="padding:12px;color:var(--text2);">Waiting for data…</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
 </div>
 
 {% include 'license_overlay.html' %}
