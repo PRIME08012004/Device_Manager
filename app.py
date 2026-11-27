@@ -28,6 +28,9 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.exceptions import InvalidSignature
 
 from werkzeug.middleware.proxy_fix import ProxyFix
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
@@ -844,6 +847,25 @@ def influx_buckets():
         return jsonify({'error': message}), error.code
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as error:
         return jsonify({'error': f'Could not reach InfluxDB: {error}'}), 502
+
+
+@app.route('/api/influx-config', methods=['GET'])
+def influx_config():
+    return jsonify({
+        'url': os.environ.get('INFLUXDB_URL', ''),
+        'token': os.environ.get('INFLUXDB_TOKEN', ''),
+        'org': os.environ.get('INFLUXDB_ORG', ''),
+        'bucket': os.environ.get('INFLUXDB_BUCKET', ''),
+    })
+
+
+@app.after_request
+def add_influx_config_cors(response):
+    if request.path == '/api/influx-config':
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = '*'
+    return response
 
 
 @app.route('/config/<name>', methods=['GET'])

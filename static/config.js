@@ -521,7 +521,7 @@ startLiveDataPolling();
     }
 
     function toggleInfluxUrl() {
-        influxUrls.style.display = influxUseLocal.checked ? 'none' : '';
+        influxUrls.disabled = influxUseLocal.checked;
         if (influxUseLocal.checked) influxUrls.value = 'http://localhost:8086';
     }
 
